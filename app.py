@@ -23,7 +23,7 @@ app.config["JWT_SECRET_KEY"]         = os.environ.get("JWT_SECRET", "bbof-jwt-se
 app.config["JWT_TOKEN_LOCATION"]     = ["cookies"]
 app.config["JWT_COOKIE_CSRF_PROTECT"]= False
 app.config["JWT_ACCESS_TOKEN_EXPIRES"]= timedelta(days=7)
-app.config["SQLALCHEMY_DATABASE_URI"]= os.environ.get("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR,'bbof.db')}")
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///bboF.db')
 app.config["SQLALCHEMY_ENGINE_OPTIONS"]= {"connect_args":{"check_same_thread": False}}
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"]= False
 app.config["MAX_CONTENT_LENGTH"]    = 10 * 1024 * 1024
