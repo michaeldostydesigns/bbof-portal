@@ -149,8 +149,8 @@ class ChatMessage(db.Model):
 
 
 class Settings(db.Model):
-    id            = db.Column(db.Integer, primary_key=True, default=1)
-    lives_impacted= db.Column(db.Integer, default=0)
+    id = db.Column(db.Integer, primary_key=True)  # No default!
+    lives_impacted = db.Column(db.Integer, default=0)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -556,11 +556,12 @@ def public_gallery():
 
 @app.route("/api/settings")
 def public_settings():
-    s = Settings.query.get(1)
+    s = Settings.query.first()
     if not s:
-        s = Settings(id=1, lives_impacted=0); db.session.add(s); db.session.commit()
+        s = Settings(lives_impacted=0)
+        db.session.add(s)
+        db.session.commit()
     return jsonify(settings={"lives_impacted": s.lives_impacted})
-
 
 # ═══════════════════════════════════════════════════════════════
 # MEMBER ROUTES
@@ -858,12 +859,14 @@ def admin_update_settings():
         if val < 0: raise ValueError
     except (ValueError, TypeError):
         return jsonify(error="Please provide a valid non-negative number."), 400
-    s = Settings.query.get(1)
-    if not s: s = Settings(id=1); db.session.add(s)
-    s.lives_impacted = val
+    s = Settings.query.first()
+    if not s:
+        s = Settings(lives_impacted=val)
+        db.session.add(s)
+    else:
+        s.lives_impacted = val
     db.session.commit()
     return jsonify(settings={"lives_impacted": s.lives_impacted})
-
 
 # ═══════════════════════════════════════════════════════════════
 # ADMIN – PDF REPORTS
@@ -966,15 +969,17 @@ def on_send_message(data):
 def seed():
     with app.app_context():
         db.create_all()
-        if not Settings.query.get(1):
-            db.session.add(Settings(id=1, lives_impacted=0)); db.session.commit()
+        if not Settings.query.first():
+            db.session.add(Settings(lives_impacted=0))
+            db.session.commit()
+            print("✅ Settings created")
         if not User.query.filter_by(email="admin@bbof.org").first():
             admin = User(name="Foundation Admin", email="admin@bbof.org",
                          password_hash=bcrypt.hashpw(b"Admin@123", bcrypt.gensalt()).decode(),
                          role="admin")
-            db.session.add(admin); db.session.commit()
-            print("✅  Admin created: admin@bbof.org / Admin@123")
-
+            db.session.add(admin)
+            db.session.commit()
+            print("✅ Admin created: admin@bbof.org / Admin@123")
 
 if __name__ == "__main__":
     seed()
