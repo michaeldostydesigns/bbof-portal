@@ -149,8 +149,8 @@ class ChatMessage(db.Model):
 
 
 class Settings(db.Model):
-    id = db.Column(db.Integer, primary_key=True)  # No default!
-    lives_impacted = db.Column(db.Integer, default=0)
+    id            = db.Column(db.Integer, primary_key=True)  # FIXED: Removed default=1
+    lives_impacted= db.Column(db.Integer, default=0)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -501,23 +501,72 @@ def spa(p=None):
 
 
 # ═══════════════════════════════════════════════════════════════
-# AUTH ROUTES
+# HEALTH CHECK - NEW ENDPOINT
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/api/health")
+def health_check():
+    """Check if the application and database are working properly."""
+    try:
+        user_count = User.query.count()
+        settings = Settings.query.first()
+        return jsonify({
+            "status": "healthy",
+            "database": "connected",
+            "user_count": user_count,
+            "settings_exists": settings is not None,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }), 500
+
+
+# ═══════════════════════════════════════════════════════════════
+# AUTH ROUTES - UPDATED WITH DEBUGGING
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/api/auth/login", methods=["POST"])
 def login():
-    data     = request.get_json()
-    email    = (data.get("email") or "").lower().strip()
+    data = request.get_json()
+    email = (data.get("email") or "").lower().strip()
     password = data.get("password") or ""
-    user     = User.query.filter_by(email=email).first()
-    if not user or user.status == "terminated":
+    
+    # Debug logging
+    print(f"🔐 Login attempt: {email}")
+    
+    user = User.query.filter_by(email=email).first()
+    
+    if not user:
+        print(f"❌ User not found: {email}")
         return jsonify(error="Invalid email or password."), 401
-    if not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
+    
+    if user.status == "terminated":
+        print(f"❌ User terminated: {email}")
         return jsonify(error="Invalid email or password."), 401
-    token = create_access_token(identity=user.id,
-                                additional_claims={"role": user.role, "name": user.name})
-    resp  = jsonify(user=user.to_dict())
+    
+    # Check password
+    try:
+        if not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
+            print(f"❌ Invalid password for: {email}")
+            return jsonify(error="Invalid email or password."), 401
+    except Exception as e:
+        print(f"❌ Password check error: {str(e)}")
+        return jsonify(error="Login error. Please try again."), 401
+    
+    # Create token
+    token = create_access_token(
+        identity=user.id,
+        additional_claims={"role": user.role, "name": user.name}
+    )
+    
+    resp = jsonify(user=user.to_dict())
     set_access_cookies(resp, token)
+    
+    print(f"✅ Login successful: {email}")
     return resp
 
 
@@ -539,7 +588,7 @@ def me():
 
 
 # ═══════════════════════════════════════════════════════════════
-# PUBLIC ROUTES
+# PUBLIC ROUTES - UPDATED
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/api/news")
@@ -556,12 +605,13 @@ def public_gallery():
 
 @app.route("/api/settings")
 def public_settings():
-    s = Settings.query.first()
+    s = Settings.query.first()  # FIXED: Using first() instead of get(1)
     if not s:
         s = Settings(lives_impacted=0)
         db.session.add(s)
         db.session.commit()
     return jsonify(settings={"lives_impacted": s.lives_impacted})
+
 
 # ═══════════════════════════════════════════════════════════════
 # MEMBER ROUTES
@@ -845,7 +895,7 @@ def admin_delete_gallery(gid):
 
 
 # ═══════════════════════════════════════════════════════════════
-# ADMIN – SETTINGS
+# ADMIN – SETTINGS - UPDATED
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/api/admin/settings", methods=["PUT"])
@@ -859,7 +909,8 @@ def admin_update_settings():
         if val < 0: raise ValueError
     except (ValueError, TypeError):
         return jsonify(error="Please provide a valid non-negative number."), 400
-    s = Settings.query.first()
+    
+    s = Settings.query.first()  # FIXED: Using first() instead of get(1)
     if not s:
         s = Settings(lives_impacted=val)
         db.session.add(s)
@@ -868,8 +919,9 @@ def admin_update_settings():
     db.session.commit()
     return jsonify(settings={"lives_impacted": s.lives_impacted})
 
+
 # ═══════════════════════════════════════════════════════════════
-# ADMIN – PDF REPORTS
+# ADMIN – PDF REPORTS - UPDATED
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/api/admin/reports/member/<mid>")
@@ -894,7 +946,7 @@ def report_all():
     members   = User.query.filter_by(role="member").order_by(User.name).all()
     donations = Donation.query.order_by(Donation.recorded_at.desc()).all()
     expenses  = Expense.query.order_by(Expense.recorded_at.desc()).all()
-    settings  = Settings.query.get(1)
+    settings  = Settings.query.first()  # FIXED: Using first() instead of get(1)
     pdf_bytes = generate_all_pdf(summary, members, donations, expenses, settings)
     ts = datetime.now().strftime("%Y%m%d")
     return Response(pdf_bytes, mimetype="application/pdf",
@@ -963,23 +1015,51 @@ def on_send_message(data):
 
 
 # ═══════════════════════════════════════════════════════════════
-# SEED
+# SEED - UPDATED WITH BETTER ERROR HANDLING
 # ═══════════════════════════════════════════════════════════════
 
 def seed():
     with app.app_context():
-        db.create_all()
-        if not Settings.query.first():
-            db.session.add(Settings(lives_impacted=0))
-            db.session.commit()
-            print("✅ Settings created")
-        if not User.query.filter_by(email="admin@bbof.org").first():
-            admin = User(name="Foundation Admin", email="admin@bbof.org",
-                         password_hash=bcrypt.hashpw(b"Admin@123", bcrypt.gensalt()).decode(),
-                         role="admin")
-            db.session.add(admin)
-            db.session.commit()
-            print("✅ Admin created: admin@bbof.org / Admin@123")
+        try:
+            # Create all tables
+            db.create_all()
+            print("✅ Database tables created/verified")
+            
+            # Create settings if it doesn't exist
+            if not Settings.query.first():
+                db.session.add(Settings(lives_impacted=0))
+                db.session.commit()
+                print("✅ Settings created")
+            else:
+                print("✅ Settings already exist")
+            
+            # Create admin if it doesn't exist
+            admin_email = "admin@bbof.org"
+            admin_password = "Admin@123"
+            
+            if not User.query.filter_by(email=admin_email).first():
+                admin = User(
+                    name="Foundation Admin",
+                    email=admin_email,
+                    password_hash=bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode(),
+                    role="admin",
+                    status="active"
+                )
+                db.session.add(admin)
+                db.session.commit()
+                print(f"✅ Admin created: {admin_email} / {admin_password}")
+            else:
+                print(f"✅ Admin already exists: {admin_email}")
+                
+        except Exception as e:
+            print(f"❌ Seed error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+
+# ═══════════════════════════════════════════════════════════════
+# MAIN
+# ═══════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
     seed()
