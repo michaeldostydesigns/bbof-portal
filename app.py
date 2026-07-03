@@ -536,38 +536,64 @@ def health_check():
 
 @app.route("/api/auth/login", methods=["POST"])
 def login():
-    try:  # Wrap the entire function in a try/except block
+    try:
         data = request.get_json()
+        if not data:
+            print("❌ No JSON data received")
+            return jsonify({"error": "Invalid request data"}), 400
+            
         email = (data.get("email") or "").lower().strip()
         password = data.get("password") or ""
-
-        print(f"🔐 Login attempt: {email}")
-
-        # --- Your existing login logic here ---
+        
+        print(f"🔐 Login attempt for: {email}")
+        
+        # Validate input
+        if not email or not password:
+            print("❌ Missing email or password")
+            return jsonify({"error": "Email and password are required"}), 400
+        
+        # Find user
         user = User.query.filter_by(email=email).first()
-        if not user or user.status == "terminated":
-            return jsonify(error="Invalid email or password."), 401
-
-        if not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
-            return jsonify(error="Invalid email or password."), 401
-
-        token = create_access_token(identity=user.id,
-                                    additional_claims={"role": user.role, "name": user.name})
-        resp = jsonify(user=user.to_dict())
+        
+        if not user:
+            print(f"❌ User not found: {email}")
+            return jsonify({"error": "Invalid email or password"}), 401
+        
+        if user.status == "terminated":
+            print(f"❌ User terminated: {email}")
+            return jsonify({"error": "Account terminated. Contact admin."}), 401
+        
+        # Verify password
+        try:
+            password_valid = bcrypt.checkpw(password.encode(), user.password_hash.encode())
+            if not password_valid:
+                print(f"❌ Invalid password for: {email}")
+                return jsonify({"error": "Invalid email or password"}), 401
+        except Exception as e:
+            print(f"❌ Password check error: {str(e)}")
+            return jsonify({"error": "Password verification failed"}), 500
+        
+        # Create access token
+        token = create_access_token(
+            identity=user.id,
+            additional_claims={"role": user.role, "name": user.name}
+        )
+        
+        # Prepare response
+        response_data = {
+            "user": user.to_dict()
+        }
+        resp = jsonify(response_data)
         set_access_cookies(resp, token)
+        
+        print(f"✅ Login successful: {email}")
         return resp
-
+        
     except Exception as e:
-        # Log the full error traceback to the Render console
         print("❌ LOGIN ERROR:")
+        import traceback
         traceback.print_exc()
-        return jsonify(error="An internal server error occurred."), 500
-    # Set the cookie
-    set_access_cookies(resp, token)
-    
-    print(f"✅ Login successful: {email}")
-    return resp
-
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 @app.route("/api/debug/users", methods=["GET"])
 def debug_users():
@@ -1040,23 +1066,24 @@ def seed():
             db.create_all()
             print("✅ Database tables created/verified")
             
-            # Create settings if it doesn't exist
+            # Create settings
             if not Settings.query.first():
                 db.session.add(Settings(lives_impacted=0))
                 db.session.commit()
                 print("✅ Settings created")
-            else:
-                print("✅ Settings already exist")
             
-            # Create admin if it doesn't exist
+            # Check for admin
             admin_email = "admin@bbof.org"
             admin_password = "Admin@123"
             
-            if not User.query.filter_by(email=admin_email).first():
+            admin = User.query.filter_by(email=admin_email).first()
+            if not admin:
+                # Create admin
+                hashed_password = bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode()
                 admin = User(
                     name="Foundation Admin",
                     email=admin_email,
-                    password_hash=bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode(),
+                    password_hash=hashed_password,
                     role="admin",
                     status="active"
                 )
@@ -1070,7 +1097,6 @@ def seed():
             print(f"❌ Seed error: {str(e)}")
             import traceback
             traceback.print_exc()
-
 
 # ═══════════════════════════════════════════════════════════════
 # MAIN
