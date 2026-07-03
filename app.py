@@ -1,5 +1,4 @@
 import os
-import traceback
 import io
 import uuid
 import base64
@@ -161,7 +160,7 @@ class ChatMessage(db.Model):
 
 
 class Settings(db.Model):
-    id            = db.Column(db.Integer, primary_key=True)  # FIXED: Removed default=1
+    id            = db.Column(db.Integer, primary_key=True)
     lives_impacted= db.Column(db.Integer, default=0)
 
 
@@ -513,7 +512,7 @@ def spa(p=None):
 
 
 # ═══════════════════════════════════════════════════════════════
-# HEALTH CHECK - NEW ENDPOINT
+# HEALTH CHECK
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/api/health")
@@ -538,11 +537,7 @@ def health_check():
 
 
 # ═══════════════════════════════════════════════════════════════
-# AUTH ROUTES - UPDATED WITH DEBUGGING
-# ═══════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════
-# AUTH ROUTES - COMPLETE UPDATE
+# AUTH ROUTES
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/api/auth/login", methods=["POST"])
@@ -550,7 +545,6 @@ def login():
     try:
         data = request.get_json()
         if not data:
-            print("❌ No JSON data received")
             return jsonify({"error": "Invalid request data"}), 400
             
         email = (data.get("email") or "").lower().strip()
@@ -558,12 +552,9 @@ def login():
         
         print(f"🔐 Login attempt for: {email}")
         
-        # Validate input
         if not email or not password:
-            print("❌ Missing email or password")
             return jsonify({"error": "Email and password are required"}), 400
         
-        # Find user
         user = User.query.filter_by(email=email).first()
         
         if not user:
@@ -571,29 +562,22 @@ def login():
             return jsonify({"error": "Invalid email or password"}), 401
         
         if user.status == "terminated":
-            print(f"❌ User terminated: {email}")
             return jsonify({"error": "Account terminated. Contact admin."}), 401
         
-        # Verify password
         try:
-            password_valid = bcrypt.checkpw(password.encode(), user.password_hash.encode())
-            if not password_valid:
+            if not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
                 print(f"❌ Invalid password for: {email}")
                 return jsonify({"error": "Invalid email or password"}), 401
         except Exception as e:
             print(f"❌ Password check error: {str(e)}")
             return jsonify({"error": "Password verification failed"}), 500
         
-        # Create access token
         token = create_access_token(
             identity=user.id,
             additional_claims={"role": user.role, "name": user.name}
         )
         
-        # Prepare response
-        response_data = {
-            "user": user.to_dict()
-        }
+        response_data = {"user": user.to_dict()}
         resp = jsonify(response_data)
         set_access_cookies(resp, token)
         
@@ -606,21 +590,6 @@ def login():
         traceback.print_exc()
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
-@app.route("/api/debug/users", methods=["GET"])
-def debug_users():
-    """Temporary: List all users for debugging"""
-    users = User.query.all()
-    return jsonify({
-        "count": len(users),
-        "users": [
-            {
-                "email": u.email,
-                "name": u.name,
-                "role": u.role,
-                "status": u.status
-            } for u in users
-        ]
-    })
 
 @app.route("/api/auth/logout", methods=["POST"])
 def logout():
@@ -632,7 +601,7 @@ def logout():
 @app.route("/api/me")
 @jwt_required(optional=True)
 def me():
-    uid  = get_jwt_identity()
+    uid = get_jwt_identity()
     if not uid:
         return jsonify(user=None)
     user = User.query.get(uid)
@@ -640,7 +609,7 @@ def me():
 
 
 # ═══════════════════════════════════════════════════════════════
-# PUBLIC ROUTES - UPDATED
+# PUBLIC ROUTES
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/api/news")
@@ -657,7 +626,7 @@ def public_gallery():
 
 @app.route("/api/settings")
 def public_settings():
-    s = Settings.query.first()  # FIXED: Using first() instead of get(1)
+    s = Settings.query.first()
     if not s:
         s = Settings(lives_impacted=0)
         db.session.add(s)
@@ -678,7 +647,7 @@ def finance():
 @app.route("/api/payments/mine")
 @jwt_required()
 def my_payments():
-    uid      = get_jwt_identity()
+    uid = get_jwt_identity()
     payments = Payment.query.filter_by(user_id=uid).order_by(Payment.recorded_at.desc()).all()
     return jsonify(payments=[p.to_dict() for p in payments])
 
@@ -686,7 +655,7 @@ def my_payments():
 @app.route("/api/members/count")
 @jwt_required()
 def members_count():
-    total  = User.query.filter_by(role="member").count()
+    total = User.query.filter_by(role="member").count()
     active = User.query.filter_by(role="member", status="active").count()
     return jsonify(total=total, active=active)
 
@@ -694,13 +663,15 @@ def members_count():
 @app.route("/api/profile", methods=["PUT"])
 @jwt_required()
 def update_profile():
-    uid  = get_jwt_identity()
+    uid = get_jwt_identity()
     user = User.query.get(uid)
     if not user:
         return jsonify(error="User not found."), 404
     data = request.get_json()
-    if data.get("name"):           user.name  = data["name"]
-    if data.get("phone") is not None: user.phone = data["phone"]
+    if data.get("name"):
+        user.name = data["name"]
+    if data.get("phone") is not None:
+        user.phone = data["phone"]
     if data.get("password"):
         if len(data["password"]) < 6:
             return jsonify(error="Password must be at least 6 characters."), 400
@@ -739,16 +710,17 @@ def admin_get_members():
 def admin_create_member():
     err = require_admin()
     if err: return err
-    data  = request.get_json()
+    data = request.get_json()
     if not data.get("name") or not data.get("email") or not data.get("password"):
         return jsonify(error="Name, email, and password are required."), 400
     email = data["email"].lower().strip()
     if User.query.filter_by(email=email).first():
         return jsonify(error="A member with this email already exists."), 409
-    user  = User(name=data["name"], email=email, phone=data.get("phone"),
-                 password_hash=bcrypt.hashpw(data["password"].encode(), bcrypt.gensalt()).decode(),
-                 role="admin" if data.get("role") == "admin" else "member")
-    db.session.add(user); db.session.commit()
+    user = User(name=data["name"], email=email, phone=data.get("phone"),
+                password_hash=bcrypt.hashpw(data["password"].encode(), bcrypt.gensalt()).decode(),
+                role="admin" if data.get("role") == "admin" else "member")
+    db.session.add(user)
+    db.session.commit()
     return jsonify(member=user.to_dict()), 201
 
 
@@ -759,11 +731,16 @@ def admin_update_member(mid):
     if err: return err
     user = User.query.get_or_404(mid)
     data = request.get_json()
-    if data.get("name"):            user.name   = data["name"]
-    if data.get("phone") is not None: user.phone  = data["phone"]
-    if data.get("role"):            user.role   = "admin" if data["role"]=="admin" else "member"
-    if data.get("status"):          user.status = "terminated" if data["status"]=="terminated" else "active"
-    if data.get("password"):        user.password_hash = bcrypt.hashpw(data["password"].encode(), bcrypt.gensalt()).decode()
+    if data.get("name"):
+        user.name = data["name"]
+    if data.get("phone") is not None:
+        user.phone = data["phone"]
+    if data.get("role"):
+        user.role = "admin" if data["role"] == "admin" else "member"
+    if data.get("status"):
+        user.status = "terminated" if data["status"] == "terminated" else "active"
+    if data.get("password"):
+        user.password_hash = bcrypt.hashpw(data["password"].encode(), bcrypt.gensalt()).decode()
     db.session.commit()
     return jsonify(member=user.to_dict())
 
@@ -774,7 +751,8 @@ def admin_delete_member(mid):
     err = require_admin()
     if err: return err
     user = User.query.get_or_404(mid)
-    db.session.delete(user); db.session.commit()
+    db.session.delete(user)
+    db.session.commit()
     return jsonify(ok=True)
 
 
@@ -800,7 +778,8 @@ def admin_create_payment():
         return jsonify(error="Member, amount, and month are required."), 400
     p = Payment(user_id=data["user_id"], amount=float(data["amount"]),
                 for_month=data["for_month"], note=data.get("note"))
-    db.session.add(p); db.session.commit()
+    db.session.add(p)
+    db.session.commit()
     return jsonify(payment=p.to_dict()), 201
 
 
@@ -810,7 +789,8 @@ def admin_delete_payment(pid):
     err = require_admin()
     if err: return err
     p = Payment.query.get_or_404(pid)
-    db.session.delete(p); db.session.commit()
+    db.session.delete(p)
+    db.session.commit()
     return jsonify(ok=True)
 
 
@@ -836,7 +816,8 @@ def admin_create_donation():
         return jsonify(error="Donor name and amount are required."), 400
     d = Donation(donor_name=data["donor_name"], amount=float(data["amount"]),
                  source=data.get("source"), note=data.get("note"))
-    db.session.add(d); db.session.commit()
+    db.session.add(d)
+    db.session.commit()
     return jsonify(donation=d.to_dict()), 201
 
 
@@ -846,7 +827,8 @@ def admin_delete_donation(did):
     err = require_admin()
     if err: return err
     d = Donation.query.get_or_404(did)
-    db.session.delete(d); db.session.commit()
+    db.session.delete(d)
+    db.session.commit()
     return jsonify(ok=True)
 
 
@@ -872,7 +854,8 @@ def admin_create_expense():
         return jsonify(error="Title and amount are required."), 400
     e = Expense(title=data["title"], amount=float(data["amount"]),
                 category=data.get("category"), note=data.get("note"))
-    db.session.add(e); db.session.commit()
+    db.session.add(e)
+    db.session.commit()
     return jsonify(expense=e.to_dict()), 201
 
 
@@ -882,7 +865,8 @@ def admin_delete_expense(eid):
     err = require_admin()
     if err: return err
     e = Expense.query.get_or_404(eid)
-    db.session.delete(e); db.session.commit()
+    db.session.delete(e)
+    db.session.commit()
     return jsonify(ok=True)
 
 
@@ -895,15 +879,18 @@ def admin_delete_expense(eid):
 def admin_create_news():
     err = require_admin()
     if err: return err
-    data  = request.get_json()
+    data = request.get_json()
     if not data.get("title") or not data.get("content"):
         return jsonify(error="Title and content are required."), 400
     image = None
     if data.get("image_data_url"):
-        try:    image = save_data_url(data["image_data_url"], "news")
-        except Exception as ex: return jsonify(error=str(ex)), 400
+        try:
+            image = save_data_url(data["image_data_url"], "news")
+        except Exception as ex:
+            return jsonify(error=str(ex)), 400
     p = NewsPost(title=data["title"], content=data["content"], image=image)
-    db.session.add(p); db.session.commit()
+    db.session.add(p)
+    db.session.commit()
     return jsonify(post=p.to_dict()), 201
 
 
@@ -913,7 +900,8 @@ def admin_delete_news(nid):
     err = require_admin()
     if err: return err
     p = NewsPost.query.get_or_404(nid)
-    db.session.delete(p); db.session.commit()
+    db.session.delete(p)
+    db.session.commit()
     return jsonify(ok=True)
 
 
@@ -929,10 +917,13 @@ def admin_upload_gallery():
     data = request.get_json()
     if not data.get("image_data_url"):
         return jsonify(error="An image is required."), 400
-    try:    url = save_data_url(data["image_data_url"], "gallery")
-    except Exception as ex: return jsonify(error=str(ex)), 400
+    try:
+        url = save_data_url(data["image_data_url"], "gallery")
+    except Exception as ex:
+        return jsonify(error=str(ex)), 400
     img = GalleryImage(url=url, caption=data.get("caption"))
-    db.session.add(img); db.session.commit()
+    db.session.add(img)
+    db.session.commit()
     return jsonify(image=img.to_dict()), 201
 
 
@@ -942,12 +933,13 @@ def admin_delete_gallery(gid):
     err = require_admin()
     if err: return err
     img = GalleryImage.query.get_or_404(gid)
-    db.session.delete(img); db.session.commit()
+    db.session.delete(img)
+    db.session.commit()
     return jsonify(ok=True)
 
 
 # ═══════════════════════════════════════════════════════════════
-# ADMIN – SETTINGS - UPDATED
+# ADMIN – SETTINGS
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/api/admin/settings", methods=["PUT"])
@@ -958,11 +950,12 @@ def admin_update_settings():
     data = request.get_json()
     try:
         val = int(data.get("lives_impacted", 0))
-        if val < 0: raise ValueError
+        if val < 0:
+            raise ValueError
     except (ValueError, TypeError):
         return jsonify(error="Please provide a valid non-negative number."), 400
     
-    s = Settings.query.first()  # FIXED: Using first() instead of get(1)
+    s = Settings.query.first()
     if not s:
         s = Settings(lives_impacted=val)
         db.session.add(s)
@@ -973,7 +966,7 @@ def admin_update_settings():
 
 
 # ═══════════════════════════════════════════════════════════════
-# ADMIN – PDF REPORTS - UPDATED
+# ADMIN – PDF REPORTS
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/api/admin/reports/member/<mid>")
@@ -981,9 +974,9 @@ def admin_update_settings():
 def report_member(mid):
     err = require_admin()
     if err: return err
-    user     = User.query.get_or_404(mid)
+    user = User.query.get_or_404(mid)
     payments = Payment.query.filter_by(user_id=mid).order_by(Payment.recorded_at.asc()).all()
-    pdf_bytes= generate_member_pdf(user, payments)
+    pdf_bytes = generate_member_pdf(user, payments)
     safe_name = user.name.replace(" ", "-").replace("/", "-")
     return Response(pdf_bytes, mimetype="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="BBOF-Report-{safe_name}.pdf"'})
@@ -994,11 +987,11 @@ def report_member(mid):
 def report_all():
     err = require_admin()
     if err: return err
-    summary   = get_finance_summary()
-    members   = User.query.filter_by(role="member").order_by(User.name).all()
+    summary = get_finance_summary()
+    members = User.query.filter_by(role="member").order_by(User.name).all()
     donations = Donation.query.order_by(Donation.recorded_at.desc()).all()
-    expenses  = Expense.query.order_by(Expense.recorded_at.desc()).all()
-    settings  = Settings.query.first()  # FIXED: Using first() instead of get(1)
+    expenses = Expense.query.order_by(Expense.recorded_at.desc()).all()
+    settings = Settings.query.first()
     pdf_bytes = generate_all_pdf(summary, members, donations, expenses, settings)
     ts = datetime.now().strftime("%Y%m%d")
     return Response(pdf_bytes, mimetype="application/pdf",
@@ -1016,8 +1009,8 @@ def _auth_socket():
         if not token:
             return None
         decoded = decode_token(token)
-        uid     = decoded["sub"]
-        user    = User.query.get(uid)
+        uid = decoded["sub"]
+        user = User.query.get(uid)
         return user if (user and user.status == "active") else None
     except Exception:
         return None
@@ -1028,16 +1021,14 @@ def on_connect():
     with app.app_context():
         user = _auth_socket()
         if not user:
-            return False   # reject
+            return False
         online_users[request.sid] = {
             "id": user.id, "name": user.name,
             "profile_image": user.profile_image, "role": user.role,
         }
         join_room("chat")
-        # Send history to this client
         msgs = ChatMessage.query.order_by(ChatMessage.created_at.asc()).limit(100).all()
         emit("chat_history", [m.to_dict() for m in msgs])
-        # Broadcast updated presence list to everyone
         emit("users_online", get_online_list(), room="chat")
 
 
@@ -1056,45 +1047,44 @@ def on_send_message(data):
         content = (data.get("content") or "").strip()
         if not content or len(content) > 1000:
             return
-        uid  = online_users[request.sid]["id"]
+        uid = online_users[request.sid]["id"]
         user = User.query.get(uid)
         if not user:
             return
-        msg  = ChatMessage(user_id=uid, content=content)
-        db.session.add(msg); db.session.commit()
+        msg = ChatMessage(user_id=uid, content=content)
+        db.session.add(msg)
+        db.session.commit()
         db.session.refresh(msg)
         emit("new_message", msg.to_dict(), room="chat")
 
 
 # ═══════════════════════════════════════════════════════════════
-# SEED - UPDATED WITH BETTER ERROR HANDLING
+# SEED FUNCTION - UPDATED
 # ═══════════════════════════════════════════════════════════════
 
 def seed():
+    """Initialize the database with required data."""
     with app.app_context():
         try:
             # Create all tables
             db.create_all()
             print("✅ Database tables created/verified")
             
-            # Create settings
+            # Create settings if it doesn't exist
             if not Settings.query.first():
                 db.session.add(Settings(lives_impacted=0))
                 db.session.commit()
                 print("✅ Settings created")
             
-            # Check for admin
+            # Create admin user if it doesn't exist
             admin_email = "admin@bbof.org"
             admin_password = "Admin@123"
             
-            admin = User.query.filter_by(email=admin_email).first()
-            if not admin:
-                # Create admin
-                hashed_password = bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode()
+            if not User.query.filter_by(email=admin_email).first():
                 admin = User(
                     name="Foundation Admin",
                     email=admin_email,
-                    password_hash=hashed_password,
+                    password_hash=bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode(),
                     role="admin",
                     status="active"
                 )
@@ -1109,10 +1099,14 @@ def seed():
             import traceback
             traceback.print_exc()
 
+
 # ═══════════════════════════════════════════════════════════════
-# MAIN
+# MAIN - UPDATED WITH FORCE SEED
 # ═══════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
+    # Force seed on startup
+    print("🚀 Starting B.BOF Portal...")
     seed()
+    print("✅ Application ready!")
     socketio.run(app, debug=False, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)
