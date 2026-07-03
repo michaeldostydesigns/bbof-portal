@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Bowra_B Outreach Foundation</title>
+<link rel="icon" href="/static/logo.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --forest:#1f4d3d;--forest-dark:#143329;--cream:#f6f3ea;--paper:#fffdf8;
+  --gold:#c9a24b;--ink:#1a1a1a;--ink-soft:#4a4a44;--line:#e3ddca;
+  --danger:#b3433a;--success:#1f6b4a;--radius:14px;
+  --shadow:0 6px 20px rgba(20,51,41,0.09);
+}
+html,body{min-height:100vh;background:var(--cream);color:var(--ink);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3,.serif{font-family:'Fraunces',Georgia,serif;letter-spacing:-0.01em}
+a{color:inherit;text-decoration:none} button,input,select,textarea{font-family:inherit} img{max-width:100%}
+::selection{background:var(--gold);color:var(--forest-dark)}
+
+.container{max-width:1160px;margin:0 auto;padding:0 20px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 20px;border-radius:999px;border:1.5px solid transparent;font-weight:600;font-size:14px;cursor:pointer;transition:.15s ease}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--forest);color:#fff;border-color:var(--forest)}.btn-primary:hover{opacity:.92}
+.btn-gold{background:var(--gold);color:var(--forest-dark);border-color:var(--gold)}.btn-gold:hover{opacity:.9}
+.btn-outline{background:transparent;border-color:var(--forest);color:var(--forest)}.btn-outline:hover{background:rgba(31,77,61,.06)}
+.btn-danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn-sm{padding:6px 14px;font-size:13px} .btn:disabled{opacity:.5;cursor:not-allowed}
+.input{width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-size:14px;color:var(--ink);outline:none;transition:.15s}
+.input:focus{border-color:var(--gold)}
+.field-label{font-size:12px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px}
+.badge{display:inline-flex;align-items:center;font-size:12px;font-weight:700;padding:4px 12px;border-radius:999px;background:rgba(201,162,75,.18);color:var(--forest-dark)}
+.alert{padding:11px 14px;border-radius:10px;font-size:13.5px;margin:8px 0}
+.alert-error{background:#fbeae8;color:var(--danger)} .alert-success{background:#e4f5ed;color:var(--success)}
+.data-table{width:100%;border-collapse:collapse;font-size:14px}
+.data-table th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);border-bottom:1px solid var(--line);padding:10px 14px;font-weight:700}
+.data-table td{padding:12px 14px;border-bottom:1px solid var(--line)}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tbody tr:hover td{background:rgba(31,77,61,.03)}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.pill-active{background:#e4f5ed;color:var(--success);font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px}
+.pill-terminated{background:#fbeae8;color:var(--danger);font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px}
+
+/* ── Modal ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
+.modal{background:var(--paper);border-radius:var(--radius);padding:24px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.22)}
+.modal h2{font-size:19px;color:var(--forest-dark);margin-bottom:18px}
+.form-grid{display:grid;gap:14px}
+
+/* ── Lightbox ── */
+#lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;z-index:999;padding:16px;flex-direction:column;gap:12px}
+#lightbox.open{display:flex}
+#lightbox img{max-width:100%;max-height:80vh;border-radius:12px;object-fit:contain;box-shadow:0 8px 40px rgba(0,0,0,.6)}
+#lightbox-caption{color:rgba(255,255,255,.8);font-size:14px;text-align:center;max-width:600px}
+#lightbox-close{position:fixed;top:16px;right:16px;width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#lightbox-close:hover{background:rgba(255,255,255,.3)}
+#lightbox-prev,#lightbox-next{position:fixed;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#lightbox-prev:hover,#lightbox-next:hover{background:rgba(255,255,255,.3)}
+#lightbox-prev{left:12px} #lightbox-next{right:12px}
+
+/* ── Sidebar overlay (mobile) ── */
+#sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:98}
+#sidebar-overlay.open{display:block}
+
+/* ── Dashboard layout ── */
+.dash-layout{display:flex;min-height:100vh}
+.sidebar{width:230px;flex-shrink:0;background:var(--forest-dark);display:flex;flex-direction:column;padding:20px 14px;position:sticky;top:0;height:100vh;overflow-y:auto;z-index:99;transition:transform .3s ease}
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding:0 4px;margin-bottom:22px;color:#fff}
+.sidebar-brand img{width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.sidebar-brand-name{font-family:'Fraunces',serif;font-weight:700;font-size:13px;line-height:1.25}
+.sidebar-nav{display:flex;flex-direction:column;gap:2px;flex:1}
+.nav-link{display:block;padding:9px 12px;border-radius:9px;font-size:13px;font-weight:600;color:rgba(255,255,255,.8);cursor:pointer;transition:.15s}
+.nav-link:hover{background:rgba(255,255,255,.08)} .nav-link.active{background:var(--gold);color:var(--forest-dark)}
+.sidebar-footer{border-top:1px solid rgba(255,255,255,.14);padding-top:14px;margin-top:8px}
+.sidebar-user{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--forest-dark);font-size:13px;overflow:hidden;flex-shrink:0}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.sidebar-user-info .uname{font-size:12.5px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+.sidebar-user-info .urole{font-size:11px;color:rgba(255,255,255,.5);text-transform:capitalize}
+.main-content{flex:1;padding:28px 24px;overflow-y:auto;min-width:0}
+.mobile-topbar{display:none;background:var(--forest-dark);padding:12px 16px;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:97}
+.hamburger{width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.mobile-brand{display:flex;align-items:center;gap:8px;color:#fff}
+.mobile-brand img{width:28px;height:28px;border-radius:50%;object-fit:cover}
+.mobile-brand-name{font-family:'Fraunces',serif;font-size:14px;font-weight:700}
+
+/* ── Stat cards ── */
+.stat-grid{display:grid;gap:14px}
+.stat-card{padding:18px 20px}
+.stat-label{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft)}
+.stat-value{font-family:'Fraunces',serif;font-size:26px;font-weight:700;margin-top:8px;color:var(--forest-dark)}
+
+/* ── Profile ── */
+.profile-avatar-wrap{display:flex;align-items:center;gap:18px;margin-bottom:22px}
+.profile-avatar{width:76px;height:76px;border-radius:50%;background:var(--forest);display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0}
+.profile-avatar img{width:100%;height:100%;object-fit:cover}
+
+/* ── Gallery ── */
+.gallery-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.gallery-item{border-radius:12px;overflow:hidden;border:1px solid var(--line);cursor:pointer;position:relative}
+.gallery-item img{width:100%;height:150px;object-fit:cover;display:block;transition:transform .3s ease}
+.gallery-item:hover img{transform:scale(1.04)}
+.gallery-item-overlay{position:absolute;inset:0;background:rgba(20,51,41,0);display:flex;align-items:center;justify-content:center;transition:.3s;opacity:0}
+.gallery-item:hover .gallery-item-overlay{background:rgba(20,51,41,.35);opacity:1}
+.gallery-item-overlay span{color:#fff;font-size:26px}
+.gallery-caption{padding:8px 12px;font-size:12.5px;color:var(--ink-soft);background:#fff}
+
+/* ── CHAT ── */
+.chat-layout{display:flex;height:calc(100vh - 120px);min-height:400px;gap:0;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow)}
+.chat-main{flex:1;display:flex;flex-direction:column;background:var(--paper);min-width:0}
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:var(--cream)}
+.chat-bubble{display:flex;gap:10px;align-items:flex-end;max-width:75%}
+.chat-bubble.mine{align-self:flex-end;flex-direction:row-reverse}
+.chat-bubble .bubble-avatar{width:30px;height:30px;border-radius:50%;background:var(--forest);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:12px;flex-shrink:0;overflow:hidden}
+.chat-bubble .bubble-avatar img{width:100%;height:100%;object-fit:cover}
+.bubble-body{}
+.bubble-name{font-size:11px;font-weight:700;color:var(--ink-soft);margin-bottom:3px;padding:0 4px}
+.bubble-mine-name{text-align:right}
+.bubble-text{padding:10px 14px;border-radius:18px;font-size:13.5px;line-height:1.5;word-break:break-word}
+.chat-bubble:not(.mine) .bubble-text{background:#fff;border:1px solid var(--line);border-bottom-left-radius:4px;color:var(--ink)}
+.chat-bubble.mine .bubble-text{background:var(--forest);color:#fff;border-bottom-right-radius:4px}
+.bubble-time{font-size:10.5px;color:var(--ink-soft);margin-top:4px;padding:0 4px}
+.bubble-mine-time{text-align:right}
+.chat-input-row{display:flex;gap:10px;padding:14px 16px;background:var(--paper);border-top:1px solid var(--line)}
+.chat-input-row input{flex:1;border-radius:999px;padding:10px 16px}
+.chat-input-row button{border-radius:50%;width:40px;height:40px;padding:0;flex-shrink:0}
+.chat-sidebar{width:200px;flex-shrink:0;background:var(--paper);border-left:1px solid var(--line);display:flex;flex-direction:column}
+.chat-sidebar-head{padding:14px 14px 10px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);border-bottom:1px solid var(--line)}
+.online-list{flex:1;overflow-y:auto;padding:10px 10px}
+.online-item{display:flex;align-items:center;gap:9px;padding:7px 6px;border-radius:8px}
+.online-item:hover{background:rgba(31,77,61,.05)}
+.online-dot{width:9px;height:9px;border-radius:50%;background:#22c55e;flex-shrink:0;box-shadow:0 0 0 2px rgba(34,197,94,.2)}
+.online-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.online-you{font-size:11px;color:var(--ink-soft)}
+.chat-empty{text-align:center;padding:40px 16px;color:var(--ink-soft);font-size:14px}
+
+/* ── Landing ── */
+.site-header{background:var(--paper);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+.site-header-inner{display:flex;align-items:center;justify-content:space-between;padding:12px 0}
+.site-brand{display:flex;align-items:center;gap:10px}
+.site-brand img{width:44px;height:44px;border-radius:50%;object-fit:cover}
+.site-brand-name{font-family:'Fraunces',serif;font-weight:700;font-size:16px;color:var(--forest-dark)}
+.site-brand-motto{font-size:11.5px;color:var(--ink-soft);font-style:italic}
+.hero{background:linear-gradient(160deg,var(--forest) 0%,var(--forest-dark) 100%);padding:60px 0;color:#fff}
+.hero-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:48px;align-items:center}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:5px 14px;font-size:12.5px;font-weight:700;color:rgba(255,255,255,.9);margin-bottom:18px}
+.hero-title{font-size:40px;line-height:1.08;color:#fff;margin-bottom:16px}
+.hero-text{font-size:15.5px;line-height:1.7;color:rgba(255,255,255,.82);margin-bottom:26px}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap}
+.impact-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:32px 24px;text-align:center}
+.impact-number{font-family:'Fraunces',serif;font-size:64px;font-weight:700;color:var(--gold);line-height:1;margin-bottom:10px}
+.impact-label{font-size:15px;font-weight:700;color:#fff}
+.impact-sub{font-size:12px;color:rgba(255,255,255,.55);margin-top:10px;line-height:1.5}
+.section-block{padding:56px 0} .section-alt{background:var(--paper)}
+.section-header{margin-bottom:26px}
+.section-header h2{font-size:26px;color:var(--forest-dark)}
+.section-header p{color:var(--ink-soft);margin-top:6px;font-size:14.5px}
+.news-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.news-card{overflow:hidden;display:flex;flex-direction:column}
+.news-card-img{width:100%;height:165px;object-fit:cover;display:block}
+.news-card-body{padding:16px 18px 18px;flex:1;display:flex;flex-direction:column}
+.news-card-title{font-size:16px;color:var(--forest-dark);margin-bottom:7px}
+.news-card-text{font-size:13.5px;color:var(--ink-soft);line-height:1.6;margin-bottom:10px;flex:1}
+.news-card-date{font-size:12px;color:var(--gold);font-weight:700}
+.site-footer{background:var(--forest-dark);color:rgba(255,255,255,.7);padding:24px 0}
+.site-footer-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px}
+.empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:14px}
+.page{display:none} .page.active{display:block}
+.dash-page{display:none} .dash-page.active{display:block}
+
+/* ── Responsive ── */
+@media(max-width:900px){
+  .hero-grid{grid-template-columns:1fr;gap:32px} .hero-title{font-size:32px}
+  .news-grid{grid-template-columns:repeat(2,1fr)}
+  .gallery-grid{grid-template-columns:repeat(3,1fr)}
+  .stat-grid[style*="repeat(4"]{grid-template-columns:repeat(2,1fr)!important}
+  .stat-grid[style*="repeat(3"]{grid-template-columns:repeat(2,1fr)!important}
+  .chat-sidebar{width:160px}
+}
+@media(max-width:640px){
+  .site-brand-motto{display:none} .hero{padding:40px 0} .hero-title{font-size:26px}
+  .impact-number{font-size:48px} .section-block{padding:36px 0}
+  .news-grid{grid-template-columns:1fr} .gallery-grid{grid-template-columns:repeat(2,1fr)}
+  .stat-grid[style*="repeat(4"]{grid-template-columns:1fr 1fr!important}
+  .stat-grid[style*="repeat(3"]{grid-template-columns:1fr 1fr!important}
+  .stat-value{font-size:22px} .site-footer-inner{flex-direction:column;gap:10px}
+  .sidebar{position:fixed;left:0;top:0;height:100%;transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)} .mobile-topbar{display:flex}
+  .main-content{padding:18px 14px}
+  [style*="grid-template-columns:1fr 1fr"]{display:block!important}
+  [style*="grid-template-columns:1fr 1fr"] > *{margin-bottom:16px}
+  .modal{padding:18px 16px}
+  .chat-sidebar{display:none} .chat-layout{height:calc(100vh - 160px)}
+  .hide-sm{display:none!important}
+}
+@media(max-width:400px){
+  .gallery-grid{grid-template-columns:1fr 1fr}
+  .hero-actions .btn{width:100%;justify-content:center} .hero-actions{flex-direction:column}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LIGHTBOX ══ -->
+<div id="lightbox" onclick="if(event.target===this)closeLightbox()">
+  <button id="lightbox-close" onclick="closeLightbox()">&#10005;</button>
+  <button id="lightbox-prev" onclick="lightboxNav(-1)">&#8249;</button>
+  <img id="lightbox-img" src="" alt=""/>
+  <div id="lightbox-caption"></div>
+  <button id="lightbox-next" onclick="lightboxNav(1)">&#8250;</button>
+</div>
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- ══ LANDING ══ -->
+<div id="page-landing" class="page active">
+  <header class="site-header">
+    <div class="container site-header-inner">
+      <div class="site-brand">
+        <img src="/static/logo.png" alt="B.BOF logo"/>
+        <div><div class="site-brand-name">Bowra_B Outreach Foundation</div><div class="site-brand-motto">Smile With The Needy</div></div>
+      </div>
+      <button class="btn btn-gold btn-sm" onclick="showPage('login')">Member sign in</button>
+    </div>
+  </header>
+  <section class="hero">
+    <div class="container hero-grid">
+      <div>
+        <div class="hero-eyebrow">&#127757; B.BOF &middot; Community Outreach</div>
+        <h1 class="hero-title serif">A dignified life, within reach for every neighbour.</h1>
+        <p class="hero-text">We support vulnerable individuals and communities through food and shelter relief, education, healthcare outreach, and economic empowerment.</p>
+        <div class="hero-actions">
+          <button class="btn btn-gold" onclick="document.getElementById('impact-section').scrollIntoView({behavior:'smooth'})">See our impact</button>
+          <button class="btn btn-outline" style="border-color:rgba(255,255,255,.5);color:#fff" onclick="document.getElementById('gallery-section').scrollIntoView({behavior:'smooth'})">View gallery</button>
+        </div>
+      </div>
+      <div id="impact-section" class="impact-card">
+        <div class="impact-number" id="landing-lives">0</div>
+        <div class="impact-label">Lives impacted to date</div>
+        <div class="impact-sub">Updated directly by the Foundation's admin team</div>
+      </div>
+    </div>
+  </section>
+  <section class="section-block">
+    <div class="container">
+      <div class="section-header"><h2 class="serif">News &amp; activity</h2><p>Updates from the Foundation's outreach programs.</p></div>
+      <div id="landing-news" class="news-grid"><div class="card empty-state" style="grid-column:1/-1">Loading...</div></div>
+    </div>
+  </section>
+  <section id="gallery-section" class="section-block section-alt">
+    <div class="container">
+      <div class="section-header"><h2 class="serif">From the field</h2><p>Moments captured during our outreach. Tap any photo to view.</p></div>
+      <div id="landing-gallery" class="gallery-grid"><div class="card empty-state" style="grid-column:1/-1">Loading...</div></div>
+    </div>
+  </section>
+  <footer class="site-footer">
+    <div class="container site-footer-inner">
+      <div class="site-brand"><img src="/static/logo.png" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover"/><span style="font-family:'Fraunces',serif;font-weight:700;font-size:14px;color:#fff">Bowra_B Outreach Foundation</span></div>
+      <div style="font-size:12.5px">Non-profit &middot; Non-political &middot; Non-religious &copy; <span id="footer-year"></span></div>
+      <button class="btn btn-sm" style="background:transparent;border:1px solid rgba(255,255,255,.3);color:rgba(255,255,255,.8)" onclick="showPage('login')">Member sign in &rarr;</button>
+    </div>
+  </footer>
+</div>
+
+<!-- ══ LOGIN ══ -->
+<div id="page-login" class="page" style="min-height:100vh;display:none;align-items:center;justify-content:center;background:var(--cream);padding:20px">
+  <div class="card" style="width:100%;max-width:400px;padding:32px 28px">
+    <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:22px">
+      <img src="/static/logo.png" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover"/>
+      <h1 class="serif" style="font-size:18px;color:var(--forest-dark);margin-top:13px;text-align:center">Bowra_B Outreach Foundation</h1>
+      <p style="font-size:13px;color:var(--ink-soft);margin-top:4px">Sign in to your member account</p>
+    </div>
+    <div class="form-grid">
+      <div><label class="field-label">Email</label><input class="input" id="login-email" type="email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+      <div><label class="field-label">Password</label><input class="input" id="login-password" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+      <div id="login-error" class="alert alert-error" style="display:none"></div>
+      <button class="btn btn-primary" id="login-btn" onclick="doLogin()" style="width:100%">Sign in</button>
+    </div>
+    <div style="text-align:center;margin-top:16px"><button onclick="showPage('landing')" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--ink-soft)">&larr; Back to home</button></div>
+    <p style="font-size:11.5px;color:var(--ink-soft);text-align:center;margin-top:14px;line-height:1.5">Accounts are created by the Foundation's admin. Contact the admin team if you need access.</p>
+  </div>
+</div>
+
+<!-- ══ MEMBER DASHBOARD ══ -->
+<div id="page-member" class="page" style="display:none">
+  <div class="mobile-topbar">
+    <button class="hamburger" onclick="openSidebar('member-sidebar')">&#9776;</button>
+    <div class="mobile-brand"><img src="/static/logo.png" alt=""/><span class="mobile-brand-name">B.BOF Member</span></div>
+    <div class="avatar" id="member-topbar-avatar" style="width:32px;height:32px;font-size:13px"></div>
+  </div>
+  <div class="dash-layout">
+    <aside class="sidebar" id="member-sidebar">
+      <a href="#" class="sidebar-brand" onclick="showPage('landing');return false"><img src="/static/logo.png" alt=""/><div class="sidebar-brand-name">Bowra_B<br>Outreach</div></a>
+      <nav class="sidebar-nav">
+        <a class="nav-link active" data-dp="member-overview" onclick="switchDash(this,'member')">&#128202; Overview</a>
+        <a class="nav-link" data-dp="member-payments" onclick="switchDash(this,'member')">&#128179; My payments</a>
+        <a class="nav-link" data-dp="member-gallery" onclick="switchDash(this,'member')">&#128444;&#65039; Gallery</a>
+        <a class="nav-link" data-dp="member-chat" onclick="switchDash(this,'member')">&#128172; Community chat <span id="member-unread-badge" style="display:none;background:var(--gold);color:var(--forest-dark);font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;margin-left:4px">0</span></a>
+        <a class="nav-link" data-dp="member-profile" onclick="switchDash(this,'member')">&#128100; Profile settings</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user"><div class="avatar" id="member-nav-avatar"></div><div class="sidebar-user-info"><div class="uname" id="member-nav-name"></div><div class="urole">Member</div></div></div>
+        <button class="btn btn-sm btn-outline" style="width:100%;border-color:rgba(255,255,255,.3);color:#fff" onclick="doLogout()">Sign out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <div id="member-overview" class="dash-page active">
+        <h1 class="serif" style="font-size:22px;color:var(--forest-dark)">Welcome back, <span id="member-first-name"></span></h1>
+        <p style="color:var(--ink-soft);margin:5px 0 22px;font-size:14px">Your account snapshot and Foundation impact at a glance.</p>
+        <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+          <div class="card stat-card"><div class="stat-label">Your dues paid</div><div class="stat-value" id="m-my-total">-</div></div>
+          <div class="card stat-card"><div class="stat-label">Foundation dues</div><div class="stat-value" id="m-all-dues">-</div></div>
+          <div class="card stat-card"><div class="stat-label">Net wealth</div><div class="stat-value" style="color:var(--gold)" id="m-net-wealth">-</div></div>
+          <div class="card stat-card"><div class="stat-label">Lives impacted</div><div class="stat-value" id="m-lives">-</div></div>
+        </div>
+        <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:22px">
+          <div class="card stat-card"><div class="stat-label">Total members</div><div class="stat-value" id="m-total-members">-</div></div>
+          <div class="card stat-card"><div class="stat-label">Active members</div><div class="stat-value" id="m-active-members">-</div></div>
+          <div class="card stat-card"><div class="stat-label">Online now</div><div class="stat-value" style="color:var(--success)" id="m-online-count">-</div></div>
+        </div>
+        <div class="card" style="padding:18px 20px">
+          <h2 style="font-size:15px;color:var(--forest-dark);margin-bottom:12px">Recent dues payments</h2>
+          <div class="table-scroll" id="m-recent-payments"></div>
+        </div>
+      </div>
+      <div id="member-payments" class="dash-page">
+        <h1 class="serif" style="font-size:22px;color:var(--forest-dark);margin-bottom:5px">My payment records</h1>
+        <p style="color:var(--ink-soft);margin-bottom:18px;font-size:14px">All dues payments recorded against your account.</p>
+        <div class="card" style="padding:14px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <span style="font-size:13px;font-weight:700;color:var(--ink-soft)">Total paid to date</span>
+          <span class="serif" style="font-size:22px;font-weight:700;color:var(--forest-dark)" id="m-pay-total">-</span>
+        </div>
+        <div class="card" style="padding:4px 0"><div class="table-scroll" id="m-pay-table"></div></div>
+      </div>
+      <div id="member-gallery" class="dash-page">
+        <h1 class="serif" style="font-size:22px;color:var(--forest-dark);margin-bottom:5px">Foundation gallery</h1>
+        <p style="color:var(--ink-soft);margin-bottom:20px;font-size:14px">Tap any photo to view full size.</p>
+        <div id="m-gallery-grid" class="gallery-grid"></div>
+      </div>
+      <!-- CHAT PAGE -->
+      <div id="member-chat" class="dash-page">
+        <h1 class="serif" style="font-size:22px;color:var(--forest-dark);margin-bottom:5px">Community chat</h1>
+        <p style="color:var(--ink-soft);margin-bottom:16px;font-size:14px">Connect and socialise with fellow members in real time.</p>
+        <div class="chat-layout">
+          <div class="chat-main">
+            <div class="chat-messages" id="chat-messages"><div class="chat-empty">Loading messages...</div></div>
+            <div class="chat-input-row">
+              <input class="input" id="chat-input" placeholder="Type a message..." maxlength="1000" onkeydown="if(event.key==='Enter'&&!event.shiftKey){sendChatMsg();event.preventDefault()}"/>
+              <button class="btn btn-primary" onclick="sendChatMsg()" style="border-radius:50%;width:40px;height:40px;padding:0">&#10148;</button>
+            </div>
+          </div>
+          <aside class="chat-sidebar">
+            <div class="chat-sidebar-head">Online now (<span id="online-count-badge">0</span>)</div>
+            <div class="online-list" id="online-list"></div>
+          </aside>
+        </div>
+      </div>
+      <div id="member-profile" class="dash-page">
+        <h1 class="serif" style="font-size:22px;color:var(--forest-dark);margin-bottom:5px">Profile settings</h1>
+        <p style="color:var(--ink-soft);margin-bottom:20px;font-size:14px">Update your name, phone, profile photo, or password.</p>
+        <div class="card" style="padding:24px 22px;max-width:520px" id="member-profile-form-wrap"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ══ ADMIN DASHBOARD ══ -->
+<div id="page-admin" class="page" style="display:none">
+  <div class="mobile-topbar">
+    <button class="hamburger" onclick="openSidebar('admin-sidebar')">&#9776;</button>
+    <div class="mobile-brand"><img src="/static/logo.png" alt=""/><span class="mobile-brand-name">B.BOF Admin</span></div>
+    <div class="avatar" id="admin-topbar-avatar" style="width:32px;height:32px;font-size:13px"></div>
+  </div>
+  <div class="dash-layout">
+    <aside class="sidebar" id="admin-sidebar">
+      <a href="#" class="sidebar-brand" onclick="showPage('landing');return false"><img src="/static/logo.png" alt=""/><div class="sidebar-brand-name">Bowra_B<br>Admin</div></a>
+      <nav class="sidebar-nav">
+        <a class="nav-link active" data-dp="admin-overview" onclick="switchDash(this,'admin')">&#128202; Overview</a>
+        <a class="nav-link" data-dp="admin-members" onclick="switchDash(this,'admin')">&#128101; Members</a>
+        <a class="nav-link" data-dp="admin-payments" onclick="switchDash(this,'admin')">&#128179; Dues</a>
+        <a class="nav-link" data-dp="admin-donations" onclick="switchDash(this,'admin')">&#129309; Donations</a>
+        <a class="nav-link" data-dp="admin-expenses" onclick="switchDash(this,'admin')">&#128196; Expenses</a>
+        <a class="nav-link" data-dp="admin-news" onclick="switchDash(this,'admin')">&#128240; News feed</a>
+        <a class="nav-link" data-dp="admin-gallery" onclick="switchDash(this,'admin')">&#128444;&#65039; Gallery</a>
+        <a class="nav-link" data-dp="admin-lives" onclick="switchDash(this,'admin')">&#10084;&#65039; Lives impacted</a>
+        <a class="nav-link" data-dp="admin-reports" onclick="switchDash(this,'admin')">&#128451; Reports</a>
+        <a class="nav-link" data-dp="admin-chat" onclick="switchDash(this,'admin')">&#128172; Community chat</a>
+        <a class="nav-link" data-dp="admin-profile" onclick="switchDash(this,'admin')">&#128100; Profile settings</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user"><div class="avatar" id="admin-nav-avatar"></div><div class="sidebar-user-info"><div class="uname" id="admin-nav-name"></div><div class="urole">Admin</div></div></div>
+        <button class="btn btn-sm btn-outline" style="width:100%;border-color:rgba(255,255,255,.3);color:#fff" onclick="doLogout()">Sign out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <div id="admin-overview" class="dash-page active">
+        <h1 class="serif" style="font-size:22px;color:var(--forest-dark)">Admin overview</h1>
+        <p style="color:var(--ink-soft);margin:5px 0 22px;font-size:14px">Foundation-wide financial summary.</p>
+        <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+          <div class="card stat-card"><div class="stat-label">Total dues</div><div class="stat-value" id="a-dues">-</div></div>
+          <div class="card stat-card"><div class="stat-label">Total donations</div><div class="stat-value" id="a-donations">-</div></div>
+          <div class="card stat-card"><div class="stat-label">Total expenses</div><div class="stat-value" style="color:var(--danger)" id="a-expenses">-</div></div>
+          <div class="card stat-card"><div class="stat-label">Net wealth</div><div class="stat-value" style="color:var(--gold)" id="a-netwealth">-</div></div>
+        </div>
+        <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px">
+          <div class="card stat-card"><div class="stat-label">Total members</div><div class="stat-value" id="a-total-members">-</div></div>
+          <div class="card stat-card"><div class="stat-label">Active members</div><div class="stat-value" id="a-active-members">-</div></div>
+          <div class="card stat-card"><div class="stat-label">Lives impacted</div><div class="stat-value" id="a-lives">-</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="card" style="padding:18px 20px"><h2 style="font-size:14px;color:var(--forest-dark);margin-bottom:12px">Recent donations</h2><div class="table-scroll" id="a-recent-donations"></div></div>
+          <div class="card" style="padding:18px 20px"><h2 style="font-size:14px;color:var(--forest-dark);margin-bottom:12px">Recent expenses</h2><div class="table-scroll" id="a-recent-expenses"></div></div>
+        </div>
+      </div>
+      <div id="admin-members" class="dash-page">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+          <div><h1 class="serif" style="font-size:20px;color:var(--forest-dark)">Members</h1><p style="color:var(--ink-soft);font-size:13px;margin-top:3px" id="a-member-count"></p></div>
+          <button class="btn btn-primary btn-sm" onclick="openAddMember()">+ Add member</button>
+        </div>
+        <input class="input" placeholder="Search by name or email..." id="member-search" oninput="filterMembers()" style="margin-bottom:12px;max-width:340px"/>
+        <div class="card" style="padding:4px 0"><div class="table-scroll" id="a-members-table"></div></div>
+      </div>
+      <div id="admin-payments" class="dash-page">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+          <div><h1 class="serif" style="font-size:20px;color:var(--forest-dark)">Dues payments</h1><p style="color:var(--ink-soft);font-size:13px;margin-top:3px">Total: <strong id="a-dues-total"></strong></p></div>
+          <button class="btn btn-primary btn-sm" onclick="openModal('modal-add-payment')">+ Record payment</button>
+        </div>
+        <div class="card" style="padding:4px 0"><div class="table-scroll" id="a-payments-table"></div></div>
+      </div>
+      <div id="admin-donations" class="dash-page">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+          <div><h1 class="serif" style="font-size:20px;color:var(--forest-dark)">Donations</h1><p style="color:var(--ink-soft);font-size:13px;margin-top:3px">Total: <strong id="a-don-total"></strong></p></div>
+          <button class="btn btn-primary btn-sm" onclick="openModal('modal-add-donation')">+ Record donation</button>
+        </div>
+        <div class="card" style="padding:4px 0"><div class="table-scroll" id="a-donations-table"></div></div>
+      </div>
+      <div id="admin-expenses" class="dash-page">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+          <div><h1 class="serif" style="font-size:20px;color:var(--forest-dark)">Expenses</h1><p style="color:var(--ink-soft);font-size:13px;margin-top:3px">Total: <strong id="a-exp-total"></strong></p></div>
+          <button class="btn btn-primary btn-sm" onclick="openModal('modal-add-expense')">+ Record expense</button>
+        </div>
+        <div class="card" style="padding:4px 0"><div class="table-scroll" id="a-expenses-table"></div></div>
+      </div>
+      <div id="admin-news" class="dash-page">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+          <div><h1 class="serif" style="font-size:20px;color:var(--forest-dark)">News feed</h1><p style="color:var(--ink-soft);font-size:13px;margin-top:3px">Posts appear on the public landing page.</p></div>
+          <button class="btn btn-primary btn-sm" onclick="openModal('modal-add-news')">+ New post</button>
+        </div>
+        <div id="a-news-list" style="display:grid;gap:12px"></div>
+      </div>
+      <div id="admin-gallery" class="dash-page">
+        <h1 class="serif" style="font-size:20px;color:var(--forest-dark);margin-bottom:4px">Photo gallery</h1>
+        <p style="color:var(--ink-soft);margin-bottom:18px;font-size:13.5px">Photos appear on the public landing page and member dashboards. Tap to view full size.</p>
+        <div class="card" style="padding:20px 22px;margin-bottom:20px">
+          <h2 style="font-size:14px;color:var(--forest-dark);margin-bottom:14px">Upload new photo</h2>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+            <div><label class="field-label">Photo</label><label class="btn btn-outline btn-sm" style="cursor:pointer">Choose photo<input type="file" accept="image/*" id="gallery-file-input" onchange="previewGallery(event)" style="display:none"/></label></div>
+            <div style="flex:1;min-width:160px"><label class="field-label">Caption (optional)</label><input class="input" id="gallery-caption" placeholder="Brief description"/></div>
+            <button class="btn btn-primary btn-sm" id="gallery-upload-btn" onclick="uploadGallery()" disabled>Upload</button>
+          </div>
+          <img id="gallery-preview" src="" alt="" style="display:none;margin-top:12px;max-height:150px;border-radius:8px;object-fit:cover"/>
+          <div id="gallery-upload-msg"></div>
+        </div>
+        <div id="a-gallery-grid" class="gallery-grid"></div>
+      </div>
+      <div id="admin-lives" class="dash-page">
+        <h1 class="serif" style="font-size:20px;color:var(--forest-dark);margin-bottom:4px">Lives impacted counter</h1>
+        <p style="color:var(--ink-soft);margin-bottom:22px;font-size:13.5px">This number appears on the public landing page.</p>
+        <div class="card" style="padding:28px 24px;max-width:400px">
+          <div style="margin-bottom:18px"><div class="field-label" style="margin-bottom:8px">Current value</div><div class="serif" style="font-size:52px;font-weight:700;color:var(--gold);line-height:1" id="a-lives-current">-</div></div>
+          <div class="form-grid">
+            <div><label class="field-label">New value</label><input class="input" type="number" min="0" id="lives-input" style="font-size:18px;font-weight:700"/></div>
+            <div id="lives-msg"></div>
+            <button class="btn btn-primary btn-sm" onclick="updateLives()" style="width:fit-content">Update counter</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- REPORTS PAGE -->
+      <div id="admin-reports" class="dash-page">
+        <h1 class="serif" style="font-size:20px;color:var(--forest-dark);margin-bottom:5px">Financial Reports</h1>
+        <p style="color:var(--ink-soft);margin-bottom:22px;font-size:14px">Download PDF financial reports for individual members or the full foundation.</p>
+        <div class="card" style="padding:22px 26px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+          <div>
+            <h2 style="font-size:16px;color:var(--forest-dark);margin-bottom:5px">&#128451; Full Foundation Report</h2>
+            <p style="font-size:13.5px;color:var(--ink-soft)">All dues, donations, expenses, net wealth, and a breakdown per member. Generated as a PDF.</p>
+          </div>
+          <a class="btn btn-primary" href="/api/admin/reports/all" target="_blank" id="dl-all-btn">Download PDF</a>
+        </div>
+        <div class="card" style="padding:4px 0">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--line)">
+            <h2 style="font-size:15px;color:var(--forest-dark)">Individual Member Reports</h2>
+            <p style="font-size:13px;color:var(--ink-soft);margin-top:4px">Download a personalised dues report for each member.</p>
+          </div>
+          <div class="table-scroll"><div id="a-reports-table"></div></div>
+        </div>
+      </div>
+
+      <!-- ADMIN CHAT -->
+      <div id="admin-chat" class="dash-page">
+        <h1 class="serif" style="font-size:20px;color:var(--forest-dark);margin-bottom:5px">Community chat</h1>
+        <p style="color:var(--ink-soft);margin-bottom:16px;font-size:14px">Participate in the member community chat.</p>
+        <div class="chat-layout">
+          <div class="chat-main">
+            <div class="chat-messages" id="admin-chat-messages"><div class="chat-empty">Loading messages...</div></div>
+            <div class="chat-input-row">
+              <input class="input" id="admin-chat-input" placeholder="Type a message..." maxlength="1000" onkeydown="if(event.key==='Enter'&&!event.shiftKey){sendChatMsg();event.preventDefault()}"/>
+              <button class="btn btn-primary" onclick="sendChatMsg()" style="border-radius:50%;width:40px;height:40px;padding:0">&#10148;</button>
+            </div>
+          </div>
+          <aside class="chat-sidebar">
+            <div class="chat-sidebar-head">Online (<span id="admin-online-count-badge">0</span>)</div>
+            <div class="online-list" id="admin-online-list"></div>
+          </aside>
+        </div>
+      </div>
+
+      <div id="admin-profile" class="dash-page">
+        <h1 class="serif" style="font-size:20px;color:var(--forest-dark);margin-bottom:4px">Profile settings</h1>
+        <p style="color:var(--ink-soft);margin-bottom:20px;font-size:13.5px">Update your admin profile photo, name, phone, or password.</p>
+        <div class="card" style="padding:24px 22px;max-width:520px" id="admin-profile-form-wrap"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ══ MODALS ══ -->
+<div id="modal-add-member" class="modal-bg" style="display:none" onclick="if(event.target===this)closeModal('modal-add-member')">
+  <div class="modal"><h2 id="modal-member-title">Add new member</h2><input type="hidden" id="edit-member-id"/>
+    <div class="form-grid">
+      <div><label class="field-label">Full name</label><input class="input" id="m-name"/></div>
+      <div id="m-email-row"><label class="field-label">Email</label><input class="input" id="m-email" type="email"/></div>
+      <div><label class="field-label">Phone</label><input class="input" id="m-phone" placeholder="+233 xxx xxx xxxx"/></div>
+      <div><label class="field-label" id="m-pw-label">Password</label><input class="input" id="m-password" type="password" placeholder="Min. 6 characters"/></div>
+      <div><label class="field-label">Role</label><select class="input" id="m-role"><option value="member">Member</option><option value="admin">Admin</option></select></div>
+      <div id="modal-member-error" class="alert alert-error" style="display:none"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="saveMember()">Save</button><button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-member')">Cancel</button></div>
+    </div>
+  </div>
+</div>
+<div id="modal-add-payment" class="modal-bg" style="display:none" onclick="if(event.target===this)closeModal('modal-add-payment')">
+  <div class="modal"><h2>Record dues payment</h2>
+    <div class="form-grid">
+      <div><label class="field-label">Member</label><select class="input" id="pay-member-sel"></select></div>
+      <div><label class="field-label">Month (YYYY-MM)</label><input class="input" id="pay-month" placeholder="e.g. 2026-06"/></div>
+      <div><label class="field-label">Amount (GHS)</label><input class="input" type="number" min="0" step="0.01" id="pay-amount"/></div>
+      <div><label class="field-label">Note (optional)</label><input class="input" id="pay-note"/></div>
+      <div id="modal-pay-error" class="alert alert-error" style="display:none"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="savePayment()">Record</button><button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-payment')">Cancel</button></div>
+    </div>
+  </div>
+</div>
+<div id="modal-add-donation" class="modal-bg" style="display:none" onclick="if(event.target===this)closeModal('modal-add-donation')">
+  <div class="modal"><h2>Record donation</h2>
+    <div class="form-grid">
+      <div><label class="field-label">Donor name</label><input class="input" id="don-name" placeholder="Full name or organization"/></div>
+      <div><label class="field-label">Amount (GHS)</label><input class="input" type="number" min="0" step="0.01" id="don-amount"/></div>
+      <div><label class="field-label">Source</label><select class="input" id="don-source"><option value="">Select...</option><option>Volunteer</option><option>Well-wisher</option><option>Organization</option><option>Fundraiser</option><option>Other</option></select></div>
+      <div><label class="field-label">Note (optional)</label><textarea class="input" id="don-note" rows="2"></textarea></div>
+      <div id="modal-don-error" class="alert alert-error" style="display:none"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="saveDonation()">Record</button><button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-donation')">Cancel</button></div>
+    </div>
+  </div>
+</div>
+<div id="modal-add-expense" class="modal-bg" style="display:none" onclick="if(event.target===this)closeModal('modal-add-expense')">
+  <div class="modal"><h2>Record expense</h2>
+    <div class="form-grid">
+      <div><label class="field-label">Title</label><input class="input" id="exp-title" placeholder="e.g. Food outreach - June 2026"/></div>
+      <div><label class="field-label">Amount (GHS)</label><input class="input" type="number" min="0" step="0.01" id="exp-amount"/></div>
+      <div><label class="field-label">Category</label><select class="input" id="exp-cat"><option value="">Select...</option><option>Food &amp; shelter</option><option>Healthcare</option><option>Education</option><option>Transport</option><option>Administration</option><option>Other</option></select></div>
+      <div><label class="field-label">Note (optional)</label><textarea class="input" id="exp-note" rows="2"></textarea></div>
+      <div id="modal-exp-error" class="alert alert-error" style="display:none"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="saveExpense()">Record</button><button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-expense')">Cancel</button></div>
+    </div>
+  </div>
+</div>
+<div id="modal-add-news" class="modal-bg" style="display:none" onclick="if(event.target===this)closeModal('modal-add-news')">
+  <div class="modal" style="max-width:520px"><h2>New news post</h2>
+    <div class="form-grid">
+      <div><label class="field-label">Title</label><input class="input" id="news-title" placeholder="e.g. Food distribution at Nungua"/></div>
+      <div><label class="field-label">Content</label><textarea class="input" id="news-content" rows="4" placeholder="Describe the activity..."></textarea></div>
+      <div><label class="field-label">Photo (optional)</label>
+        <label class="btn btn-outline btn-sm" style="cursor:pointer;display:inline-flex">Choose photo<input type="file" accept="image/*" id="news-file-input" onchange="previewNews(event)" style="display:none"/></label>
+        <img id="news-preview" src="" alt="" style="display:none;margin-top:10px;max-height:140px;border-radius:8px;object-fit:cover;width:100%"/>
+      </div>
+      <div id="modal-news-error" class="alert alert-error" style="display:none"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="saveNews()">Publish</button><button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-news')">Cancel</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let currentUser=null,allMembers=[],galleryDataUrl=null,newsDataUrl=null,profileDataUrl=null;
+let lightboxImages=[],lightboxIndex=0;
+let socket=null,chatHistoryLoaded=false,onlineUsers=[],unreadCount=0;
+let activeChatPage=null; // 'member-chat' or 'admin-chat'
+
+// ═══════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════
+function fmt(n){return'GHS '+Number(n||0).toLocaleString('en-GH',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fmtDate(s){return new Date(s).toLocaleDateString('en-GB',{year:'numeric',month:'short',day:'numeric'})}
+function fmtTime(s){return new Date(s).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
+function el(id){return document.getElementById(id)}
+function setHTML(id,html){const e=el(id);if(e)e.innerHTML=html}
+function setText(id,t){const e=el(id);if(e)e.textContent=t}
+function showAlert(id,msg,type='error'){const e=el(id);if(!e)return;e.className='alert alert-'+type;e.textContent=msg;e.style.display='block'}
+function hideAlert(id){const e=el(id);if(e)e.style.display='none'}
+async function api(url,opts={}){const res=await fetch(url,{headers:{'Content-Type':'application/json'},...opts});const data=await res.json();return{ok:res.ok,data}}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function avatarHtml(user,size=34){
+  if(user.profile_image)return`<div style="width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${user.profile_image}" style="width:100%;height:100%;object-fit:cover"/></div>`;
+  return`<div style="width:${size}px;height:${size}px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--forest-dark);font-size:${Math.round(size*.4)}px;flex-shrink:0">${(user.name||'?')[0].toUpperCase()}</div>`;
+}
+function updateNavAvatar(prefix,user){
+  ['nav','topbar'].forEach(loc=>{
+    const wrap=el(`${prefix}-${loc}-avatar`);if(!wrap)return;
+    if(user.profile_image){wrap.innerHTML=`<img src="${user.profile_image}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`}
+    else{wrap.textContent=(user.name||'?')[0].toUpperCase()}
+  });
+  setText(prefix+'-nav-name',user.name);
+}
+function galleryItemHtml(img,all,i){
+  return`<div class="gallery-item" onclick='openLightbox(${JSON.stringify(all)},${i})'>
+    <img src="${esc(img.url)}" alt="${esc(img.caption||'')}" loading="lazy"/>
+    <div class="gallery-item-overlay"><span>&#128269;</span></div>
+    ${img.caption?`<div class="gallery-caption">${esc(img.caption)}</div>`:''}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// MOBILE SIDEBAR
+// ═══════════════════════════════════════════════════════
+function openSidebar(id){document.getElementById(id).classList.add('open');document.getElementById('sidebar-overlay').classList.add('open');document.body.style.overflow='hidden'}
+function closeSidebar(){document.querySelectorAll('.sidebar').forEach(s=>s.classList.remove('open'));document.getElementById('sidebar-overlay').classList.remove('open');document.body.style.overflow=''}
+
+// ═══════════════════════════════════════════════════════
+// LIGHTBOX
+// ═══════════════════════════════════════════════════════
+function openLightbox(images,index){lightboxImages=images;lightboxIndex=index;renderLightbox();el('lightbox').classList.add('open');document.body.style.overflow='hidden';el('lightbox-prev').style.display=images.length>1?'flex':'none';el('lightbox-next').style.display=images.length>1?'flex':'none'}
+function closeLightbox(){el('lightbox').classList.remove('open');document.body.style.overflow=''}
+function lightboxNav(dir){lightboxIndex=(lightboxIndex+dir+lightboxImages.length)%lightboxImages.length;renderLightbox()}
+function renderLightbox(){const item=lightboxImages[lightboxIndex];el('lightbox-img').src=item.url;el('lightbox-caption').textContent=item.caption||''}
+document.addEventListener('keydown',e=>{
+  if(!el('lightbox').classList.contains('open'))return;
+  if(e.key==='Escape')closeLightbox();
+  else if(e.key==='ArrowLeft')lightboxNav(-1);
+  else if(e.key==='ArrowRight')lightboxNav(1);
+});
+
+// ═══════════════════════════════════════════════════════
+// PAGE ROUTER
+// ═══════════════════════════════════════════════════════
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>{p.style.display='none';p.classList.remove('active')});
+  const pg=el('page-'+name);
+  if(pg){pg.style.display=name==='login'?'flex':'block';pg.classList.add('active')}
+}
+function switchDash(el_,role){
+  closeSidebar();
+  document.getElementById(role+'-sidebar').querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
+  el_.classList.add('active');
+  const target=el_.getAttribute('data-dp');
+  document.querySelectorAll('.dash-page').forEach(p=>p.classList.remove('active'));
+  const dp=el(target);if(dp){dp.classList.add('active');loadDashPage(target)}
+  // clear unread when switching to chat
+  if(target==='member-chat'||target==='admin-chat'){clearUnread()}
+  activeChatPage=target;
+}
+
+// ═══════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════
+async function checkAuth(){
+  const{ok,data}=await api('/api/me');
+  if(ok&&data.user){currentUser=data.user;if(data.user.role==='admin'){loadAdminDash();showPage('admin')}else{loadMemberDash();showPage('member')}}
+  else{loadLanding();showPage('landing')}
+}
+async function doLogin(){
+  const email=el('login-email').value.trim(),password=el('login-password').value;
+  hideAlert('login-error');el('login-btn').disabled=true;el('login-btn').textContent='Signing in...';
+  const{ok,data}=await api('/api/auth/login',{method:'POST',body:JSON.stringify({email,password})});
+  el('login-btn').disabled=false;el('login-btn').textContent='Sign in';
+  if(!ok){showAlert('login-error',data.error||'Could not sign in.');return}
+  currentUser=data.user;
+  if(data.user.role==='admin'){loadAdminDash();showPage('admin')}else{loadMemberDash();showPage('member')}
+}
+async function doLogout(){
+  if(socket){socket.disconnect();socket=null}
+  await api('/api/auth/logout',{method:'POST'});
+  currentUser=null;loadLanding();showPage('landing');
+}
+
+// ═══════════════════════════════════════════════════════
+// LANDING
+// ═══════════════════════════════════════════════════════
+async function loadLanding(){
+  el('footer-year').textContent=new Date().getFullYear();
+  const[nR,gR,sR]=await Promise.all([api('/api/news'),api('/api/gallery'),api('/api/settings')]);
+  el('landing-lives').textContent=(sR.data.settings?.lives_impacted||0).toLocaleString();
+  const posts=nR.data.posts||[];
+  setHTML('landing-news',posts.length===0?'<div class="card empty-state" style="grid-column:1/-1">No updates yet.</div>'
+    :posts.map(p=>`<article class="card news-card">${p.image?`<img class="news-card-img" src="${esc(p.image)}" alt="" loading="lazy"/>`:''}
+      <div class="news-card-body"><h3 class="news-card-title serif">${esc(p.title)}</h3><p class="news-card-text">${esc(p.content)}</p><div class="news-card-date">${fmtDate(p.created_at)}</div></div></article>`).join(''));
+  const images=gR.data.images||[];
+  setHTML('landing-gallery',images.length===0?'<div class="card empty-state" style="grid-column:1/-1">No photos yet.</div>'
+    :images.map((img,i)=>galleryItemHtml(img,images,i)).join(''));
+}
+
+// ═══════════════════════════════════════════════════════
+// SOCKET.IO CHAT
+// ═══════════════════════════════════════════════════════
+function initSocket(){
+  if(socket)return;
+  socket=io({transports:['websocket','polling']});
+  socket.on('connect',()=>console.log('Chat connected'));
+  socket.on('disconnect',()=>{onlineUsers=[];renderOnlineUsers()});
+  socket.on('chat_history',(msgs)=>{
+    chatHistoryLoaded=true;
+    const mbx=el('chat-messages'),abx=el('admin-chat-messages');
+    if(mbx)mbx.innerHTML='';if(abx)abx.innerHTML='';
+    if(msgs.length===0){
+      if(mbx)mbx.innerHTML='<div class="chat-empty">No messages yet. Say hello!</div>';
+      if(abx)abx.innerHTML='<div class="chat-empty">No messages yet. Say hello!</div>';
+    } else {
+      msgs.forEach(m=>appendChatMsg(m,false));
+      scrollChat();
+    }
+  });
+  socket.on('new_message',(msg)=>{
+    appendChatMsg(msg,true);
+    // unread if chat not currently visible
+    const chatVisible=(activeChatPage==='member-chat'||activeChatPage==='admin-chat');
+    if(!chatVisible&&msg.user_id!==currentUser?.id){
+      unreadCount++;
+      const badge=el('member-unread-badge');
+      if(badge){badge.textContent=unreadCount;badge.style.display='inline'}
+    }
+  });
+  socket.on('users_online',(users)=>{onlineUsers=users;renderOnlineUsers()});
+  socket.on('connect_error',(e)=>console.warn('Chat error:',e));
+}
+
+function clearUnread(){
+  unreadCount=0;
+  const badge=el('member-unread-badge');
+  if(badge)badge.style.display='none';
+}
+
+function appendChatMsg(msg,scroll){
+  const isMine=msg.user_id===currentUser?.id;
+  const bubble=`<div class="chat-bubble ${isMine?'mine':''}">
+    <div class="bubble-avatar">${msg.user_profile_image?`<img src="${esc(msg.user_profile_image)}" alt=""/>`:(msg.user_name||'?')[0].toUpperCase()}</div>
+    <div class="bubble-body">
+      ${!isMine?`<div class="bubble-name">${esc(msg.user_name)}</div>`:`<div class="bubble-name bubble-mine-name">You</div>`}
+      <div class="bubble-text">${esc(msg.content)}</div>
+      <div class="bubble-time ${isMine?'bubble-mine-time':''}">${fmtTime(msg.created_at)}</div>
+    </div>
+  </div>`;
+  [el('chat-messages'),el('admin-chat-messages')].forEach(box=>{
+    if(!box)return;
+    const empty=box.querySelector('.chat-empty');if(empty)empty.remove();
+    box.insertAdjacentHTML('beforeend',bubble);
+  });
+  if(scroll)scrollChat();
+}
+
+function scrollChat(){
+  [el('chat-messages'),el('admin-chat-messages')].forEach(box=>{if(box)box.scrollTop=box.scrollHeight});
+}
+
+function sendChatMsg(){
+  const input=el(currentUser?.role==='admin'?'admin-chat-input':'chat-input');
+  if(!input)return;
+  const content=input.value.trim();
+  if(!content||!socket)return;
+  socket.emit('send_message',{content});
+  input.value='';
+}
+
+function renderOnlineUsers(){
+  const count=onlineUsers.length;
+  setText('online-count-badge',count);
+  setText('admin-online-count-badge',count);
+  setText('m-online-count',count);
+  const html=onlineUsers.length===0?'<p style="font-size:12px;color:var(--ink-soft);padding:12px 6px">No one else online</p>'
+    :onlineUsers.map(u=>`<div class="online-item">
+      <div class="online-dot"></div>
+      <div>${u.profile_image?`<img src="${esc(u.profile_image)}" style="width:26px;height:26px;border-radius:50%;object-fit:cover"/>`:`<div style="width:26px;height:26px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:var(--forest-dark)">${(u.name||'?')[0].toUpperCase()}</div>`}</div>
+      <div>
+        <div class="online-name">${esc(u.name)}</div>
+        ${u.id===currentUser?.id?'<div class="online-you">(you)</div>':''}
+      </div>
+    </div>`).join('');
+  setHTML('online-list',html);
+  setHTML('admin-online-list',html);
+}
+
+// ═══════════════════════════════════════════════════════
+// MEMBER DASHBOARD
+// ═══════════════════════════════════════════════════════
+async function loadMemberDash(){
+  if(!currentUser)return;
+  updateNavAvatar('member',currentUser);
+  setText('member-first-name',currentUser.name.split(' ')[0]);
+  renderProfileForm('member-profile-form-wrap','member');
+  initSocket();
+  loadDashPage('member-overview');
+}
+async function loadDashPage(id){
+  if(id==='member-overview')await loadMemberOverview();
+  else if(id==='member-payments')await loadMemberPayments();
+  else if(id==='member-gallery')await loadMemberGallery();
+  else if(id==='member-chat'){activeChatPage='member-chat';clearUnread();if(chatHistoryLoaded)scrollChat();}
+  else if(id==='member-profile')renderProfileForm('member-profile-form-wrap','member');
+  else if(id==='admin-overview')await loadAdminOverview();
+  else if(id==='admin-members')await loadAdminMembers();
+  else if(id==='admin-payments')await loadAdminPaymentsPage();
+  else if(id==='admin-donations')await loadAdminDonations();
+  else if(id==='admin-expenses')await loadAdminExpenses();
+  else if(id==='admin-news')await loadAdminNews();
+  else if(id==='admin-gallery')await loadAdminGallery();
+  else if(id==='admin-lives')await loadAdminLives();
+  else if(id==='admin-reports')await loadAdminReports();
+  else if(id==='admin-chat'){activeChatPage='admin-chat';clearUnread();if(chatHistoryLoaded)scrollChat();}
+  else if(id==='admin-profile')renderProfileForm('admin-profile-form-wrap','admin');
+}
+
+async function loadMemberOverview(){
+  const[pR,fR,sR,cR]=await Promise.all([api('/api/payments/mine'),api('/api/finance'),api('/api/settings'),api('/api/members/count')]);
+  const payments=pR.data.payments||[],summary=fR.data.summary||{};
+  setText('m-my-total',fmt(payments.reduce((s,p)=>s+p.amount,0)));
+  setText('m-all-dues',fmt(summary.total_dues));
+  setText('m-net-wealth',fmt(summary.net_wealth));
+  setText('m-lives',(sR.data.settings?.lives_impacted||0).toLocaleString());
+  setText('m-total-members',cR.data.total||0);
+  setText('m-active-members',cR.data.active||0);
+  setText('m-online-count',onlineUsers.length);
+  setHTML('m-recent-payments',payments.length===0?'<p style="color:var(--ink-soft);font-size:14px;padding:4px 0">No payments recorded yet.</p>'
+    :`<table class="data-table"><thead><tr><th>Month</th><th>Amount</th><th class="hide-sm">Note</th><th class="hide-sm">Date</th></tr></thead><tbody>
+      ${payments.slice(0,5).map(p=>`<tr><td>${esc(p.for_month)}</td><td>${fmt(p.amount)}</td><td class="hide-sm">${esc(p.note||'-')}</td><td class="hide-sm">${fmtDate(p.recorded_at)}</td></tr>`).join('')}
+    </tbody></table>`);
+}
+
+async function loadMemberPayments(){
+  const{data}=await api('/api/payments/mine');const payments=data.payments||[];
+  setText('m-pay-total',fmt(payments.reduce((s,p)=>s+p.amount,0)));
+  setHTML('m-pay-table',payments.length===0?'<p style="padding:20px 14px;color:var(--ink-soft);font-size:14px">No payments recorded yet.</p>'
+    :`<table class="data-table"><thead><tr><th>Month</th><th>Amount</th><th class="hide-sm">Note</th><th class="hide-sm">Date</th></tr></thead><tbody>
+      ${payments.map(p=>`<tr><td>${esc(p.for_month)}</td><td>${fmt(p.amount)}</td><td class="hide-sm">${esc(p.note||'-')}</td><td class="hide-sm">${fmtDate(p.recorded_at)}</td></tr>`).join('')}
+    </tbody></table>`);
+}
+
+async function loadMemberGallery(){
+  const{data}=await api('/api/gallery');const images=data.images||[];
+  setHTML('m-gallery-grid',images.length===0?'<div class="card empty-state" style="grid-column:1/-1">No photos uploaded yet.</div>'
+    :images.map((img,i)=>galleryItemHtml(img,images,i)).join(''));
+}
+
+// ═══════════════════════════════════════════════════════
+// ADMIN DASHBOARD
+// ═══════════════════════════════════════════════════════
+async function loadAdminDash(){
+  if(!currentUser)return;
+  updateNavAvatar('admin',currentUser);
+  renderProfileForm('admin-profile-form-wrap','admin');
+  initSocket();
+  loadDashPage('admin-overview');
+}
+
+async function loadAdminOverview(){
+  const[fR,mR,dR,eR,sR]=await Promise.all([api('/api/finance'),api('/api/admin/members'),api('/api/admin/donations'),api('/api/admin/expenses'),api('/api/settings')]);
+  const s=fR.data.summary||{};
+  setText('a-dues',fmt(s.total_dues));setText('a-donations',fmt(s.total_donations));setText('a-expenses',fmt(s.total_expenses));setText('a-netwealth',fmt(s.net_wealth));
+  const members=mR.data.members||[];
+  setText('a-total-members',members.length);setText('a-active-members',members.filter(m=>m.status==='active').length);
+  setText('a-lives',(sR.data.settings?.lives_impacted||0).toLocaleString());
+  const donations=(dR.data.donations||[]).slice(0,5),expenses=(eR.data.expenses||[]).slice(0,5);
+  setHTML('a-recent-donations',donations.length===0?'<p style="color:var(--ink-soft);font-size:14px">No donations yet.</p>'
+    :`<table class="data-table"><thead><tr><th>Donor</th><th>Amount</th></tr></thead><tbody>${donations.map(d=>`<tr><td><strong>${esc(d.donor_name)}</strong></td><td>${fmt(d.amount)}</td></tr>`).join('')}</tbody></table>`);
+  setHTML('a-recent-expenses',expenses.length===0?'<p style="color:var(--ink-soft);font-size:14px">No expenses yet.</p>'
+    :`<table class="data-table"><thead><tr><th>Title</th><th>Amount</th></tr></thead><tbody>${expenses.map(e=>`<tr><td><strong>${esc(e.title)}</strong></td><td>${fmt(e.amount)}</td></tr>`).join('')}</tbody></table>`);
+}
+
+async function loadAdminMembers(){
+  const{data}=await api('/api/admin/members');allMembers=data.members||[];
+  setText('a-member-count',`${allMembers.length} registered member${allMembers.length!==1?'s':''}`);
+  renderMembersTable(allMembers);
+}
+function filterMembers(){const q=el('member-search').value.toLowerCase();renderMembersTable(allMembers.filter(m=>m.name.toLowerCase().includes(q)||m.email.toLowerCase().includes(q)))}
+function renderMembersTable(members){
+  if(members.length===0){setHTML('a-members-table','<p class="empty-state">No members found.</p>');return}
+  setHTML('a-members-table',`<table class="data-table"><thead><tr><th></th><th>Name</th><th class="hide-sm">Email</th><th class="hide-sm">Role</th><th>Status</th><th class="hide-sm">Joined</th><th>Actions</th></tr></thead><tbody>
+    ${members.map(m=>`<tr>
+      <td>${avatarHtml(m,32)}</td><td><strong>${esc(m.name)}</strong></td>
+      <td class="hide-sm" style="font-size:13px">${esc(m.email)}</td>
+      <td class="hide-sm"><span class="badge" style="${m.role==='admin'?'background:rgba(31,77,61,.12)':''}">${m.role}</span></td>
+      <td><span class="${m.status==='active'?'pill-active':'pill-terminated'}">${m.status}</span></td>
+      <td class="hide-sm" style="font-size:13px">${fmtDate(m.joined_at)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-outline btn-sm" onclick='openEditMember(${JSON.stringify(m)})' style="margin-right:3px">Edit</button>
+        <button class="btn btn-sm" style="margin-right:3px;background:${m.status==='active'?'#fff3e0':'#e4f5ed'};color:${m.status==='active'?'#b45309':'var(--success)'};border:1.5px solid currentColor" onclick="toggleMemberStatus('${m.id}','${m.status}')">${m.status==='active'?'End':'Restore'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteMember('${m.id}','${esc(m.name)}')">Del</button>
+      </td>
+    </tr>`).join('')}
+  </tbody></table>`);
+}
+
+function openModal(id){el(id).style.display='flex'}
+function closeModal(id){el(id).style.display='none'}
+function openAddMember(){el('modal-member-title').textContent='Add new member';el('edit-member-id').value='';el('m-name').value='';el('m-email').value='';el('m-phone').value='';el('m-password').value='';el('m-role').value='member';el('m-email-row').style.display='block';el('m-pw-label').textContent='Password';hideAlert('modal-member-error');openModal('modal-add-member')}
+function openEditMember(m){el('modal-member-title').textContent='Edit member';el('edit-member-id').value=m.id;el('m-name').value=m.name;el('m-phone').value=m.phone||'';el('m-password').value='';el('m-role').value=m.role;el('m-email-row').style.display='none';el('m-pw-label').textContent='New password (leave blank to keep)';hideAlert('modal-member-error');openModal('modal-add-member')}
+async function saveMember(){
+  const id=el('edit-member-id').value;hideAlert('modal-member-error');
+  const body={name:el('m-name').value,phone:el('m-phone').value,role:el('m-role').value};
+  if(!id){body.email=el('m-email').value;body.password=el('m-password').value}else if(el('m-password').value)body.password=el('m-password').value;
+  const{ok,data}=await api(id?`/api/admin/members/${id}`:'/api/admin/members',{method:id?'PUT':'POST',body:JSON.stringify(body)});
+  if(!ok){showAlert('modal-member-error',data.error||'Could not save.');return}
+  closeModal('modal-add-member');await loadAdminMembers();
+}
+async function toggleMemberStatus(id,cur){await api(`/api/admin/members/${id}`,{method:'PUT',body:JSON.stringify({status:cur==='active'?'terminated':'active'})});await loadAdminMembers()}
+async function deleteMember(id,name){if(!confirm(`Permanently delete ${name}?`))return;await api(`/api/admin/members/${id}`,{method:'DELETE'});await loadAdminMembers()}
+
+async function loadAdminPaymentsPage(){
+  const[pR,mR]=await Promise.all([api('/api/admin/payments'),api('/api/admin/members')]);
+  const payments=pR.data.payments||[],members=(mR.data.members||[]).filter(m=>m.status==='active');
+  setText('a-dues-total',fmt(payments.reduce((s,p)=>s+p.amount,0)));
+  const sel=el('pay-member-sel');sel.innerHTML='<option value="">Select member...</option>'+members.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('');
+  setHTML('a-payments-table',payments.length===0?'<p class="empty-state">No payments recorded yet.</p>'
+    :`<table class="data-table"><thead><tr><th>Member</th><th>Month</th><th>Amount</th><th class="hide-sm">Note</th><th class="hide-sm">Date</th><th></th></tr></thead><tbody>
+      ${payments.map(p=>`<tr><td><strong>${esc(p.member_name)}</strong></td><td>${esc(p.for_month)}</td><td>${fmt(p.amount)}</td><td class="hide-sm">${esc(p.note||'-')}</td><td class="hide-sm">${fmtDate(p.recorded_at)}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deletePayment('${p.id}')">Del</button></td></tr>`).join('')}
+    </tbody></table>`);
+}
+async function savePayment(){
+  hideAlert('modal-pay-error');
+  const{ok,data}=await api('/api/admin/payments',{method:'POST',body:JSON.stringify({user_id:el('pay-member-sel').value,amount:el('pay-amount').value,for_month:el('pay-month').value,note:el('pay-note').value})});
+  if(!ok){showAlert('modal-pay-error',data.error||'Could not record.');return}
+  closeModal('modal-add-payment');el('pay-amount').value='';el('pay-month').value='';el('pay-note').value='';await loadAdminPaymentsPage();
+}
+async function deletePayment(id){if(!confirm('Delete this payment record?'))return;await api(`/api/admin/payments/${id}`,{method:'DELETE'});await loadAdminPaymentsPage()}
+
+async function loadAdminDonations(){
+  const{data}=await api('/api/admin/donations');const donations=data.donations||[];
+  setText('a-don-total',fmt(donations.reduce((s,d)=>s+d.amount,0)));
+  setHTML('a-donations-table',donations.length===0?'<p class="empty-state">No donations recorded yet.</p>'
+    :`<table class="data-table"><thead><tr><th>Donor</th><th>Amount</th><th class="hide-sm">Source</th><th class="hide-sm">Date</th><th></th></tr></thead><tbody>
+      ${donations.map(d=>`<tr><td><strong>${esc(d.donor_name)}</strong></td><td>${fmt(d.amount)}</td><td class="hide-sm">${esc(d.source||'-')}</td><td class="hide-sm">${fmtDate(d.recorded_at)}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteDonation('${d.id}')">Del</button></td></tr>`).join('')}
+    </tbody></table>`);
+}
+async function saveDonation(){
+  hideAlert('modal-don-error');
+  const{ok,data}=await api('/api/admin/donations',{method:'POST',body:JSON.stringify({donor_name:el('don-name').value,amount:el('don-amount').value,source:el('don-source').value,note:el('don-note').value})});
+  if(!ok){showAlert('modal-don-error',data.error||'Could not record.');return}
+  closeModal('modal-add-donation');el('don-name').value='';el('don-amount').value='';el('don-source').value='';el('don-note').value='';await loadAdminDonations();
+}
+async function deleteDonation(id){if(!confirm('Delete this donation?'))return;await api(`/api/admin/donations/${id}`,{method:'DELETE'});await loadAdminDonations()}
+
+async function loadAdminExpenses(){
+  const{data}=await api('/api/admin/expenses');const expenses=data.expenses||[];
+  setText('a-exp-total',fmt(expenses.reduce((s,e)=>s+e.amount,0)));
+  setHTML('a-expenses-table',expenses.length===0?'<p class="empty-state">No expenses recorded yet.</p>'
+    :`<table class="data-table"><thead><tr><th>Title</th><th>Amount</th><th class="hide-sm">Category</th><th class="hide-sm">Date</th><th></th></tr></thead><tbody>
+      ${expenses.map(e=>`<tr><td><strong>${esc(e.title)}</strong></td><td>${fmt(e.amount)}</td><td class="hide-sm">${esc(e.category||'-')}</td><td class="hide-sm">${fmtDate(e.recorded_at)}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteExpense('${e.id}')">Del</button></td></tr>`).join('')}
+    </tbody></table>`);
+}
+async function saveExpense(){
+  hideAlert('modal-exp-error');
+  const{ok,data}=await api('/api/admin/expenses',{method:'POST',body:JSON.stringify({title:el('exp-title').value,amount:el('exp-amount').value,category:el('exp-cat').value,note:el('exp-note').value})});
+  if(!ok){showAlert('modal-exp-error',data.error||'Could not record.');return}
+  closeModal('modal-add-expense');el('exp-title').value='';el('exp-amount').value='';el('exp-cat').value='';el('exp-note').value='';await loadAdminExpenses();
+}
+async function deleteExpense(id){if(!confirm('Delete this expense?'))return;await api(`/api/admin/expenses/${id}`,{method:'DELETE'});await loadAdminExpenses()}
+
+async function loadAdminNews(){
+  const{data}=await api('/api/news');const posts=data.posts||[];
+  setHTML('a-news-list',posts.length===0?'<div class="card empty-state">No posts yet.</div>'
+    :posts.map(p=>`<div class="card" style="padding:16px 18px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+        ${p.image?`<img src="${esc(p.image)}" alt="" style="width:84px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0"/>`:''}
+        <div style="flex:1;min-width:180px"><h3 style="font-size:15px;color:var(--forest-dark);margin-bottom:4px">${esc(p.title)}</h3>
+          <p style="font-size:13.5px;color:var(--ink-soft);margin:0 0 6px;line-height:1.5">${esc(p.content)}</p>
+          <span style="font-size:12px;color:var(--gold);font-weight:700">${fmtDate(p.created_at)}</span></div>
+        <button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="deleteNews('${p.id}')">Delete</button>
+      </div>`).join(''));
+}
+function previewNews(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>{newsDataUrl=ev.target.result;const img=el('news-preview');img.src=ev.target.result;img.style.display='block'};r.readAsDataURL(file)}
+async function saveNews(){
+  hideAlert('modal-news-error');
+  const body={title:el('news-title').value,content:el('news-content').value};
+  if(newsDataUrl)body.image_data_url=newsDataUrl;
+  const{ok,data}=await api('/api/admin/news',{method:'POST',body:JSON.stringify(body)});
+  if(!ok){showAlert('modal-news-error',data.error||'Could not post.');return}
+  closeModal('modal-add-news');el('news-title').value='';el('news-content').value='';newsDataUrl=null;el('news-preview').style.display='none';el('news-file-input').value='';
+  await loadAdminNews();
+}
+async function deleteNews(id){if(!confirm('Delete this post?'))return;await api(`/api/admin/news/${id}`,{method:'DELETE'});await loadAdminNews()}
+
+async function loadAdminGallery(){
+  const{data}=await api('/api/gallery');const images=data.images||[];
+  if(images.length===0){setHTML('a-gallery-grid','<div class="card empty-state" style="grid-column:1/-1">No photos uploaded yet.</div>');return}
+  setHTML('a-gallery-grid',images.map((img,i)=>`
+    <div style="position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);cursor:pointer" onclick='openLightbox(${JSON.stringify(images)},${i})'>
+      <img src="${esc(img.url)}" alt="${esc(img.caption||'')}" style="width:100%;height:155px;object-fit:cover;display:block;transition:transform .3s" loading="lazy"/>
+      <div style="position:absolute;inset:0;background:rgba(20,51,41,0);display:flex;align-items:center;justify-content:center;transition:.3s" onmouseenter="this.style.background='rgba(20,51,41,.35)';this.querySelector('span').style.opacity='1'" onmouseleave="this.style.background='rgba(20,51,41,0)';this.querySelector('span').style.opacity='0'"><span style="color:#fff;font-size:24px;opacity:0;transition:.3s">&#128269;</span></div>
+      ${img.caption?`<div style="padding:7px 10px;font-size:12.5px;color:var(--ink-soft);background:#fff">${esc(img.caption)}</div>`:''}
+      <button onclick="event.stopPropagation();deleteGalleryImg('${img.id}')" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.65);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600">Remove</button>
+    </div>`).join(''));
+}
+function previewGallery(e){const file=e.target.files[0];if(!file)return;if(file.size>5*1024*1024){setHTML('gallery-upload-msg','<div class="alert alert-error">Image must be under 5MB.</div>');return}const r=new FileReader();r.onload=ev=>{galleryDataUrl=ev.target.result;el('gallery-preview').src=ev.target.result;el('gallery-preview').style.display='block';el('gallery-upload-btn').disabled=false};r.readAsDataURL(file)}
+async function uploadGallery(){
+  if(!galleryDataUrl)return;el('gallery-upload-btn').disabled=true;el('gallery-upload-btn').textContent='Uploading...';setHTML('gallery-upload-msg','');
+  const{ok,data}=await api('/api/admin/gallery',{method:'POST',body:JSON.stringify({image_data_url:galleryDataUrl,caption:el('gallery-caption').value})});
+  el('gallery-upload-btn').textContent='Upload';
+  if(!ok){setHTML('gallery-upload-msg',`<div class="alert alert-error">${esc(data.error)}</div>`);el('gallery-upload-btn').disabled=false;return}
+  galleryDataUrl=null;el('gallery-preview').style.display='none';el('gallery-file-input').value='';el('gallery-caption').value='';el('gallery-upload-btn').disabled=true;
+  setHTML('gallery-upload-msg','<div class="alert alert-success">Photo uploaded.</div>');setTimeout(()=>setHTML('gallery-upload-msg',''),3000);await loadAdminGallery();
+}
+async function deleteGalleryImg(id){if(!confirm('Remove this photo?'))return;await api(`/api/admin/gallery/${id}`,{method:'DELETE'});await loadAdminGallery()}
+
+async function loadAdminLives(){const{data}=await api('/api/settings');const val=data.settings?.lives_impacted||0;setText('a-lives-current',val.toLocaleString());el('lives-input').value=val}
+async function updateLives(){
+  setHTML('lives-msg','');
+  const{ok,data}=await api('/api/admin/settings',{method:'PUT',body:JSON.stringify({lives_impacted:parseInt(el('lives-input').value)})});
+  if(!ok){setHTML('lives-msg',`<div class="alert alert-error">${esc(data.error)}</div>`);return}
+  setText('a-lives-current',data.settings.lives_impacted.toLocaleString());
+  setHTML('lives-msg','<div class="alert alert-success">Counter updated.</div>');setTimeout(()=>setHTML('lives-msg',''),4000);
+}
+
+async function loadAdminReports(){
+  const{data}=await api('/api/admin/members');
+  const members=(data.members||[]).filter(m=>m.role==='member');
+  if(members.length===0){setHTML('a-reports-table','<p class="empty-state">No members to report on yet.</p>');return}
+  setHTML('a-reports-table',`<table class="data-table"><thead><tr><th></th><th>Name</th><th class="hide-sm">Email</th><th class="hide-sm">Status</th><th>Action</th></tr></thead><tbody>
+    ${members.map(m=>`<tr>
+      <td>${avatarHtml(m,30)}</td>
+      <td><strong>${esc(m.name)}</strong></td>
+      <td class="hide-sm" style="font-size:13px">${esc(m.email)}</td>
+      <td class="hide-sm"><span class="${m.status==='active'?'pill-active':'pill-terminated'}">${m.status}</span></td>
+      <td><a class="btn btn-outline btn-sm" href="/api/admin/reports/member/${m.id}" target="_blank" style="display:inline-flex">&#128451; Download PDF</a></td>
+    </tr>`).join('')}
+  </tbody></table>`);
+}
+
+// ═══════════════════════════════════════════════════════
+// PROFILE FORM
+// ═══════════════════════════════════════════════════════
+function renderProfileForm(wrapId,role){
+  if(!currentUser)return;const wrap=el(wrapId);if(!wrap)return;const pfx=wrapId;
+  wrap.innerHTML=`<div class="profile-avatar-wrap">
+    <div class="profile-avatar" id="${pfx}-avatar">${currentUser.profile_image?`<img src="${currentUser.profile_image}" alt=""/>`:(currentUser.name||'?')[0].toUpperCase()}</div>
+    <div><label class="btn btn-outline btn-sm" style="cursor:pointer">Upload photo<input type="file" accept="image/*" onchange="previewProfile(event,'${pfx}')" style="display:none"/></label>
+    <p style="font-size:12px;color:var(--ink-soft);margin-top:6px">JPG, PNG, WebP - max 5MB</p></div>
+  </div>
+  <div class="form-grid">
+    <div><label class="field-label">Full name</label><input class="input" id="${pfx}-pname" value="${esc(currentUser.name||'')}"/></div>
+    <div><label class="field-label">Email</label><input class="input" value="${esc(currentUser.email||'')}" disabled style="opacity:.6"/>
+      <p style="font-size:11.5px;color:var(--ink-soft);margin-top:4px">Email cannot be changed. Contact admin.</p></div>
+    <div><label class="field-label">Phone</label><input class="input" id="${pfx}-pphone" value="${esc(currentUser.phone||'')}" placeholder="+233 xxx xxx xxxx"/></div>
+    <div style="border-top:1px solid var(--line);padding-top:16px">
+      <p style="font-size:13px;font-weight:700;color:var(--ink-soft);margin-bottom:12px">Change password (leave blank to keep)</p>
+      <div class="form-grid">
+        <div><label class="field-label">New password</label><input class="input" type="password" id="${pfx}-ppw" placeholder="Min. 6 characters"/></div>
+        <div><label class="field-label">Confirm password</label><input class="input" type="password" id="${pfx}-ppw2"/></div>
+      </div>
+    </div>
+    <div id="${pfx}-pmsg"></div>
+    <button class="btn btn-primary btn-sm" onclick="saveProfile('${pfx}')" style="width:fit-content">Save changes</button>
+  </div>`;
+}
+function previewProfile(e,pfx){const file=e.target.files[0];if(!file)return;if(file.size>5*1024*1024){setHTML(`${pfx}-pmsg`,'<div class="alert alert-error">Image must be under 5MB.</div>');return}const r=new FileReader();r.onload=ev=>{profileDataUrl=ev.target.result;el(`${pfx}-avatar`).innerHTML=`<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:cover"/>`};r.readAsDataURL(file)}
+async function saveProfile(pfx){
+  const name=el(`${pfx}-pname`).value,phone=el(`${pfx}-pphone`).value,pw=el(`${pfx}-ppw`).value,pw2=el(`${pfx}-ppw2`).value;
+  setHTML(`${pfx}-pmsg`,'');
+  if(pw&&pw!==pw2){setHTML(`${pfx}-pmsg`,'<div class="alert alert-error">Passwords do not match.</div>');return}
+  const body={name,phone};if(pw)body.password=pw;if(profileDataUrl)body.profile_image_data_url=profileDataUrl;
+  const{ok,data}=await api('/api/profile',{method:'PUT',body:JSON.stringify(body)});
+  if(!ok){setHTML(`${pfx}-pmsg`,`<div class="alert alert-error">${esc(data.error)}</div>`);return}
+  currentUser={...currentUser,...data.user};profileDataUrl=null;
+  setHTML(`${pfx}-pmsg`,'<div class="alert alert-success">Profile updated successfully.</div>');
+  updateNavAvatar(currentUser.role==='admin'?'admin':'member',currentUser);
+  setTimeout(()=>setHTML(`${pfx}-pmsg`,''),4000);
+}
+
+// ═══════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',()=>{
+  el('footer-year').textContent=new Date().getFullYear();
+  checkAuth();
+});
+</script>
+</body>
+</html>
