@@ -1,4 +1,5 @@
 import os
+import traceback
 import io
 import uuid
 import base64
@@ -535,47 +536,32 @@ def health_check():
 
 @app.route("/api/auth/login", methods=["POST"])
 def login():
-    data = request.get_json()
-    email = (data.get("email") or "").lower().strip()
-    password = data.get("password") or ""
-    
-    print(f"🔐 Login attempt: {email}")
-    
-    # Validate input
-    if not email or not password:
-        print("❌ Missing email or password")
-        return jsonify({"error": "Email and password are required"}), 400
-    
-    user = User.query.filter_by(email=email).first()
-    
-    if not user:
-        print(f"❌ User not found: {email}")
-        return jsonify({"error": "Invalid email or password."}), 401
-    
-    if user.status == "terminated":
-        print(f"❌ User terminated: {email}")
-        return jsonify({"error": "Account has been terminated."}), 401
-    
-    # Check password
-    try:
+    try:  # Wrap the entire function in a try/except block
+        data = request.get_json()
+        email = (data.get("email") or "").lower().strip()
+        password = data.get("password") or ""
+
+        print(f"🔐 Login attempt: {email}")
+
+        # --- Your existing login logic here ---
+        user = User.query.filter_by(email=email).first()
+        if not user or user.status == "terminated":
+            return jsonify(error="Invalid email or password."), 401
+
         if not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
-            print(f"❌ Invalid password for: {email}")
-            return jsonify({"error": "Invalid email or password."}), 401
+            return jsonify(error="Invalid email or password."), 401
+
+        token = create_access_token(identity=user.id,
+                                    additional_claims={"role": user.role, "name": user.name})
+        resp = jsonify(user=user.to_dict())
+        set_access_cookies(resp, token)
+        return resp
+
     except Exception as e:
-        print(f"❌ Password check error: {str(e)}")
-        return jsonify({"error": "Login error. Please try again."}), 500
-    
-    # Create token
-    token = create_access_token(
-        identity=user.id,
-        additional_claims={"role": user.role, "name": user.name}
-    )
-    
-    resp = jsonify({
-        "success": True,
-        "user": user.to_dict()
-    })
-    
+        # Log the full error traceback to the Render console
+        print("❌ LOGIN ERROR:")
+        traceback.print_exc()
+        return jsonify(error="An internal server error occurred."), 500
     # Set the cookie
     set_access_cookies(resp, token)
     
