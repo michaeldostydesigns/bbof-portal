@@ -529,33 +529,41 @@ def health_check():
 # AUTH ROUTES - UPDATED WITH DEBUGGING
 # ═══════════════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════════════
+# AUTH ROUTES - COMPLETE UPDATE
+# ═══════════════════════════════════════════════════════════════
+
 @app.route("/api/auth/login", methods=["POST"])
 def login():
     data = request.get_json()
     email = (data.get("email") or "").lower().strip()
     password = data.get("password") or ""
     
-    # Debug logging
     print(f"🔐 Login attempt: {email}")
+    
+    # Validate input
+    if not email or not password:
+        print("❌ Missing email or password")
+        return jsonify({"error": "Email and password are required"}), 400
     
     user = User.query.filter_by(email=email).first()
     
     if not user:
         print(f"❌ User not found: {email}")
-        return jsonify(error="Invalid email or password."), 401
+        return jsonify({"error": "Invalid email or password."}), 401
     
     if user.status == "terminated":
         print(f"❌ User terminated: {email}")
-        return jsonify(error="Invalid email or password."), 401
+        return jsonify({"error": "Account has been terminated."}), 401
     
     # Check password
     try:
         if not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
             print(f"❌ Invalid password for: {email}")
-            return jsonify(error="Invalid email or password."), 401
+            return jsonify({"error": "Invalid email or password."}), 401
     except Exception as e:
         print(f"❌ Password check error: {str(e)}")
-        return jsonify(error="Login error. Please try again."), 401
+        return jsonify({"error": "Login error. Please try again."}), 500
     
     # Create token
     token = create_access_token(
@@ -563,12 +571,33 @@ def login():
         additional_claims={"role": user.role, "name": user.name}
     )
     
-    resp = jsonify(user=user.to_dict())
+    resp = jsonify({
+        "success": True,
+        "user": user.to_dict()
+    })
+    
+    # Set the cookie
     set_access_cookies(resp, token)
     
     print(f"✅ Login successful: {email}")
     return resp
 
+
+@app.route("/api/debug/users", methods=["GET"])
+def debug_users():
+    """Temporary: List all users for debugging"""
+    users = User.query.all()
+    return jsonify({
+        "count": len(users),
+        "users": [
+            {
+                "email": u.email,
+                "name": u.name,
+                "role": u.role,
+                "status": u.status
+            } for u in users
+        ]
+    })
 
 @app.route("/api/auth/logout", methods=["POST"])
 def logout():
