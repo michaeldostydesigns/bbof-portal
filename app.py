@@ -19,21 +19,32 @@ from fpdf.enums import XPos, YPos
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
-app.config["SECRET_KEY"]              = os.environ.get("SECRET_KEY", "bbof-change-me-in-production")
-app.config["JWT_SECRET_KEY"]         = os.environ.get("JWT_SECRET", "bbof-jwt-secret-change-in-production")
-app.config["JWT_TOKEN_LOCATION"]     = ["cookies"]
-app.config["JWT_COOKIE_CSRF_PROTECT"]= False
-app.config["JWT_ACCESS_TOKEN_EXPIRES"]= timedelta(days=7)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///bboF.db')
-app.config["SQLALCHEMY_ENGINE_OPTIONS"]= {"connect_args":{"check_same_thread": False}}
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"]= False
-app.config["MAX_CONTENT_LENGTH"]    = 10 * 1024 * 1024
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "bbof-change-me-in-production")
+app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET", "bbof-jwt-secret-change-in-production")
+app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
+app.config["JWT_COOKIE_CSRF_PROTECT"] = False
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
+
+# ====== FIXED DATABASE CONFIGURATION ======
+DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///bboF.db')
+
+# Only use SQLite-specific options when using SQLite
+engine_options = {}
+if DATABASE_URL and DATABASE_URL.startswith('sqlite'):
+    engine_options = {"connect_args": {"check_same_thread": False}}
+
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_options
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+# ==========================================
+
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-db       = SQLAlchemy(app)
-jwt      = JWTManager(app)
+db = SQLAlchemy(app)
+jwt = JWTManager(app)
 CORS(app, supports_credentials=True)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading",
                     logger=False, engineio_logger=False, manage_session=False)
