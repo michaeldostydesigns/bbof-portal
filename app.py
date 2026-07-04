@@ -17,6 +17,7 @@ from fpdf.enums import XPos, YPos
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
+app = Flask(__name__, static_folder="static", template_folder="templates")
 app.config["SECRET_KEY"]               = os.environ.get("SECRET_KEY", "bbof-change-me")
 app.config["JWT_SECRET_KEY"]           = os.environ.get("JWT_SECRET", "bbof-jwt-secret")
 app.config["JWT_TOKEN_LOCATION"]       = ["cookies"]
