@@ -17,16 +17,15 @@ from fpdf.enums import XPos, YPos
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
-app.config["SECRET_KEY"]              = os.environ.get("SECRET_KEY", "bbof-change-me-in-production")
-app.config["JWT_SECRET_KEY"]         = os.environ.get("JWT_SECRET", "bbof-jwt-secret-change-in-production")
-app.config["JWT_TOKEN_LOCATION"]     = ["cookies"]
-app.config["JWT_COOKIE_CSRF_PROTECT"]= False
-app.config["JWT_ACCESS_TOKEN_EXPIRES"]= timedelta(days=7)
-app.config["SQLALCHEMY_DATABASE_URI"]= os.environ.get("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR,'bbof.db')}")
-app.config["SQLALCHEMY_ENGINE_OPTIONS"]= {"connect_args":{"check_same_thread": False}}
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"]= False
-app.config["MAX_CONTENT_LENGTH"]    = 10 * 1024 * 1024
+app.config["SECRET_KEY"]               = os.environ.get("SECRET_KEY", "bbof-change-me")
+app.config["JWT_SECRET_KEY"]           = os.environ.get("JWT_SECRET", "bbof-jwt-secret")
+app.config["JWT_TOKEN_LOCATION"]       = ["cookies"]
+app.config["JWT_COOKIE_CSRF_PROTECT"]  = False
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
+app.config["SQLALCHEMY_DATABASE_URI"]  = os.environ.get("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR,'bbof.db')}")
+app.config["SQLALCHEMY_ENGINE_OPTIONS"]= {} if os.environ.get("DATABASE_URL") else {"connect_args": {"check_same_thread": False}}
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["MAX_CONTENT_LENGTH"]       = 10 * 1024 * 1024
 
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
