@@ -18,15 +18,15 @@ from fpdf.enums import XPos, YPos
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
-app.config["SECRET_KEY"]               = os.environ.get("SECRET_KEY", "bbof-change-me")
-app.config["JWT_SECRET_KEY"]           = os.environ.get("JWT_SECRET", "bbof-jwt-secret")
-app.config["JWT_TOKEN_LOCATION"]       = ["cookies"]
-app.config["JWT_COOKIE_CSRF_PROTECT"]  = False
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
-app.config["SQLALCHEMY_DATABASE_URI"]  = os.environ.get("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR,'bbof.db')}")
-app.config["SQLALCHEMY_ENGINE_OPTIONS"]= {} if os.environ.get("DATABASE_URL") else {"connect_args": {"check_same_thread": False}}
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["MAX_CONTENT_LENGTH"]       = 10 * 1024 * 1024
+app.config["SECRET_KEY"]              = os.environ.get("SECRET_KEY", "bbof-change-me-in-production")
+app.config["JWT_SECRET_KEY"]         = os.environ.get("JWT_SECRET", "bbof-jwt-secret-change-in-production")
+app.config["JWT_TOKEN_LOCATION"]     = ["cookies"]
+app.config["JWT_COOKIE_CSRF_PROTECT"]= False
+app.config["JWT_ACCESS_TOKEN_EXPIRES"]= timedelta(days=7)
+app.config["SQLALCHEMY_DATABASE_URI"]= os.environ.get("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR,'bbof.db')}")
+app.config["SQLALCHEMY_ENGINE_OPTIONS"]= {"connect_args":{"check_same_thread": False}}
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"]= False
+app.config["MAX_CONTENT_LENGTH"]    = 10 * 1024 * 1024
 
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -47,6 +47,11 @@ def get_online_list():
         if uid not in seen:
             seen[uid] = info
     return list(seen.values())
+
+
+def get_user_sids(user_id):
+    """Return all socket IDs belonging to a user (multiple tabs)."""
+    return [sid for sid, info in online_users.items() if info["id"] == user_id]
 
 # ═══════════════════════════════════════════════════════════════
 # MODELS
@@ -148,6 +153,51 @@ class ChatMessage(db.Model):
                 "content":self.content,"created_at":self.created_at.isoformat()}
 
 
+class DirectMessage(db.Model):
+    id           = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    sender_id    = db.Column(db.String(36), db.ForeignKey("user.id"), nullable=False)
+    recipient_id = db.Column(db.String(36), db.ForeignKey("user.id"), nullable=False)
+    content      = db.Column(db.Text, nullable=False)
+    read         = db.Column(db.Boolean, default=False)
+    created_at   = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    sender       = db.relationship("User", foreign_keys=[sender_id])
+    recipient    = db.relationship("User", foreign_keys=[recipient_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "sender_id": self.sender_id,
+            "sender_name": self.sender.name if self.sender else "Unknown",
+            "sender_profile_image": self.sender.profile_image if self.sender else None,
+            "recipient_id": self.recipient_id,
+            "recipient_name": self.recipient.name if self.recipient else "Unknown",
+            "content": self.content,
+            "read": self.read,
+            "created_at": self.created_at.isoformat()
+        }
+
+
+class SMSLog(db.Model):
+    id              = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    recipient_name  = db.Column(db.String(200))
+    recipient_phone = db.Column(db.String(50))
+    message         = db.Column(db.Text, nullable=False)
+    status          = db.Column(db.String(50), default="pending")
+    error_msg       = db.Column(db.Text)
+    sent_at         = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "recipient_name": self.recipient_name,
+            "recipient_phone": self.recipient_phone,
+            "message": self.message,
+            "status": self.status,
+            "error_msg": self.error_msg,
+            "sent_at": self.sent_at.isoformat()
+        }
+
+
 class Settings(db.Model):
     id            = db.Column(db.Integer, primary_key=True, default=1)
     lives_impacted= db.Column(db.Integer, default=0)
@@ -158,45 +208,19 @@ class Settings(db.Model):
 # ═══════════════════════════════════════════════════════════════
 
 def save_data_url(data_url, prefix="img"):
-    """
-    Save a base64 data URL image.
-    Uses Cloudinary when env vars are set (production).
-    Falls back to local disk (development).
-    """
-    # ── Cloudinary (production) ────────────────────────────
-    if os.environ.get("CLOUDINARY_CLOUD_NAME"):
-        import cloudinary
-        import cloudinary.uploader
-        cloudinary.config(
-            cloud_name = os.environ["CLOUDINARY_CLOUD_NAME"],
-            api_key    = os.environ["CLOUDINARY_API_KEY"],
-            api_secret = os.environ["CLOUDINARY_API_SECRET"],
-            secure     = True
-        )
-        result = cloudinary.uploader.upload(
-            data_url,
-            folder          = "bbof",
-            public_id       = f"{prefix}-{uuid.uuid4().hex[:10]}",
-            overwrite       = True,
-            resource_type   = "image",
-            transformation  = [{"width": 1400, "crop": "limit", "quality": "auto", "fetch_format": "auto"}]
-        )
-        return result["secure_url"]
-
-    # ── Local disk (development fallback) ─────────────────
     import re
     from PIL import Image as PILImage
     m = re.match(r"^data:(image/(png|jpeg|jpg|gif|webp));base64,(.+)$", data_url, re.DOTALL)
     if not m:
         raise ValueError("Invalid image data")
-    ext  = "jpg" if m.group(2) in ("jpeg", "jpg") else m.group(2)
+    ext  = "jpg" if m.group(2) in ("jpeg","jpg") else m.group(2)
     raw  = base64.b64decode(m.group(3))
-    if len(raw) > 5 * 1024 * 1024:
+    if len(raw) > 5*1024*1024:
         raise ValueError("Image too large (max 5MB)")
     img  = PILImage.open(io.BytesIO(raw))
-    img.thumbnail((1400, 1400))
-    fname = f"{prefix}-{uuid.uuid4().hex[:10]}.{ext}"
-    path  = os.path.join(UPLOAD_FOLDER, fname)
+    img.thumbnail((1600,1600))
+    fname= f"{prefix}-{uuid.uuid4().hex[:10]}.{ext}"
+    path = os.path.join(UPLOAD_FOLDER, fname)
     img.save(path, quality=85)
     return f"/static/uploads/{fname}"
 
@@ -925,6 +949,164 @@ def report_all():
 
 
 # ═══════════════════════════════════════════════════════════════
+# DIRECT MESSAGES  (REST helpers — real-time via SocketIO above)
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/api/dm/unread")
+@jwt_required()
+def dm_unread():
+    uid   = get_jwt_identity()
+    total = DirectMessage.query.filter_by(recipient_id=uid, read=False).count()
+    rows  = db.session.query(
+        DirectMessage.sender_id,
+        db.func.count(DirectMessage.id).label("cnt")
+    ).filter_by(recipient_id=uid, read=False).group_by(DirectMessage.sender_id).all()
+    return jsonify(total=total, per_sender={r.sender_id: r.cnt for r in rows})
+
+
+@app.route("/api/dm/conversations")
+@jwt_required()
+def dm_conversations():
+    uid = get_jwt_identity()
+    # All unique partners (sent + received)
+    sent_q = db.session.query(
+        DirectMessage.recipient_id.label("partner_id"),
+        db.func.max(DirectMessage.created_at).label("last_at")
+    ).filter_by(sender_id=uid).group_by(DirectMessage.recipient_id)
+    recv_q = db.session.query(
+        DirectMessage.sender_id.label("partner_id"),
+        db.func.max(DirectMessage.created_at).label("last_at")
+    ).filter_by(recipient_id=uid).group_by(DirectMessage.sender_id)
+
+    partners: dict = {}
+    for row in list(sent_q) + list(recv_q):
+        pid = row.partner_id
+        if pid not in partners or row.last_at > partners[pid]:
+            partners[pid] = row.last_at
+
+    convos = []
+    for partner_id, last_at in sorted(partners.items(), key=lambda x: x[1], reverse=True):
+        user = User.query.get(partner_id)
+        if not user:
+            continue
+        unread   = DirectMessage.query.filter_by(sender_id=partner_id, recipient_id=uid, read=False).count()
+        last_msg = DirectMessage.query.filter(
+            db.or_(
+                db.and_(DirectMessage.sender_id==uid,         DirectMessage.recipient_id==partner_id),
+                db.and_(DirectMessage.sender_id==partner_id,  DirectMessage.recipient_id==uid)
+            )
+        ).order_by(DirectMessage.created_at.desc()).first()
+        convos.append({
+            "partner_id":    partner_id,
+            "partner_name":  user.name,
+            "partner_image": user.profile_image,
+            "unread":        unread,
+            "last_message":  (last_msg.content[:60] + "...") if last_msg and len(last_msg.content) > 60 else (last_msg.content if last_msg else ""),
+            "last_at":       last_at.isoformat()
+        })
+    return jsonify(conversations=convos)
+
+
+# ═══════════════════════════════════════════════════════════════
+# SMS
+# ═══════════════════════════════════════════════════════════════
+
+def _send_via_arkesel(to, body):
+    """Send SMS via Arkesel API v2."""
+    import urllib.request, json as _json
+    api_key   = os.environ["ARKESEL_API_KEY"]
+    sender_id = os.environ.get("ARKESEL_SENDER_ID", "BBOF")
+
+    payload = _json.dumps({
+        "sender":     sender_id,
+        "message":    body,
+        "recipients": [to]
+    }).encode()
+
+    req = urllib.request.Request(
+        "https://sms.arkesel.com/api/v2/sms/send",
+        data=payload, method="POST"
+    )
+    req.add_header("api-key",      api_key)
+    req.add_header("Content-Type", "application/json")
+
+    with urllib.request.urlopen(req, timeout=15) as r:
+        resp = _json.loads(r.read())
+    # Arkesel returns {"status": "success"} on success
+    if resp.get("status") != "success":
+        raise Exception(resp.get("message", f"Arkesel error: {resp}"))
+    return resp
+
+
+@app.route("/api/admin/sms/send", methods=["POST"])
+@jwt_required()
+def admin_send_sms():
+    err = require_admin()
+    if err: return err
+
+    data     = request.get_json()
+    message  = (data.get("message") or "").strip()
+    rec_type = data.get("type")        # "all" | "individual"
+    user_id  = data.get("user_id")
+
+    if not message:
+        return jsonify(error="Message is required."), 400
+    if len(message) > 640:
+        return jsonify(error="Message too long (max 640 characters)."), 400
+
+    has_arkesel = bool(os.environ.get("ARKESEL_API_KEY"))
+
+    if not has_arkesel:
+        return jsonify(error="SMS not configured. Add ARKESEL_API_KEY (and optionally ARKESEL_SENDER_ID) to your Render environment variables."), 503
+
+    if rec_type == "all":
+        members = User.query.filter(
+            User.status == "active",
+            User.phone.isnot(None),
+            User.phone != ""
+        ).all()
+    elif rec_type == "individual" and user_id:
+        u = User.query.get(user_id)
+        if not u or not u.phone:
+            return jsonify(error="Member not found or has no phone number on record."), 400
+        members = [u]
+    else:
+        return jsonify(error="Invalid recipient selection."), 400
+
+    if not members:
+        return jsonify(error="No members with phone numbers found."), 400
+
+    results = []
+    for member in members:
+        personalised = message.replace("{name}", member.name)
+        try:
+            _send_via_arkesel(member.phone, personalised)
+            log = SMSLog(recipient_name=member.name, recipient_phone=member.phone,
+                         message=personalised, status="sent")
+            results.append({"name": member.name, "phone": member.phone, "status": "sent"})
+        except Exception as e:
+            err_str = str(e)[:300]
+            log = SMSLog(recipient_name=member.name, recipient_phone=member.phone,
+                         message=personalised, status="failed", error_msg=err_str)
+            results.append({"name": member.name, "phone": member.phone, "status": "failed", "error": err_str[:100]})
+        db.session.add(log)
+
+    db.session.commit()
+    sent_n   = sum(1 for r in results if r["status"] == "sent")
+    failed_n = sum(1 for r in results if r["status"] == "failed")
+    return jsonify(results=results, sent=sent_n, failed=failed_n)
+
+
+@app.route("/api/admin/sms/logs")
+@jwt_required()
+def admin_sms_logs():
+    err = require_admin()
+    if err: return err
+    logs = SMSLog.query.order_by(SMSLog.sent_at.desc()).limit(200).all()
+    return jsonify(logs=[l.to_dict() for l in logs])
+
+
+# ═══════════════════════════════════════════════════════════════
 # SOCKET.IO EVENTS  (chat + presence)
 # ═══════════════════════════════════════════════════════════════
 
@@ -985,6 +1167,73 @@ def on_send_message(data):
         emit("new_message", msg.to_dict(), room="chat")
 
 
+@socketio.on("send_dm")
+def on_send_dm(data):
+    with app.app_context():
+        if request.sid not in online_users:
+            return
+        recipient_id = (data.get("recipient_id") or "").strip()
+        content      = (data.get("content") or "").strip()
+        if not content or not recipient_id or len(content) > 1000:
+            return
+        sender_id = online_users[request.sid]["id"]
+        if sender_id == recipient_id:
+            return
+        # Verify recipient exists
+        if not User.query.get(recipient_id):
+            return
+        msg = DirectMessage(sender_id=sender_id, recipient_id=recipient_id, content=content)
+        db.session.add(msg); db.session.commit(); db.session.refresh(msg)
+        msg_dict = msg.to_dict()
+        # Confirm to sender
+        emit("dm_message", msg_dict)
+        # Deliver to all recipient sockets
+        notification = {
+            "from_id":    sender_id,
+            "from_name":  online_users[request.sid]["name"],
+            "from_image": online_users[request.sid].get("profile_image"),
+        }
+        for sid in get_user_sids(recipient_id):
+            socketio.emit("dm_message",      msg_dict,     to=sid)
+            socketio.emit("dm_notification", notification, to=sid)
+
+
+@socketio.on("get_dm_history")
+def on_get_dm_history(data):
+    with app.app_context():
+        if request.sid not in online_users:
+            return
+        user_id  = online_users[request.sid]["id"]
+        other_id = (data.get("user_id") or "").strip()
+        if not other_id:
+            return
+        msgs = DirectMessage.query.filter(
+            db.or_(
+                db.and_(DirectMessage.sender_id==user_id,  DirectMessage.recipient_id==other_id),
+                db.and_(DirectMessage.sender_id==other_id, DirectMessage.recipient_id==user_id)
+            )
+        ).order_by(DirectMessage.created_at.asc()).limit(100).all()
+        # Mark incoming as read
+        DirectMessage.query.filter_by(recipient_id=user_id, sender_id=other_id, read=False)\
+            .update({"read": True})
+        db.session.commit()
+        emit("dm_history", {"with_user_id": other_id, "messages": [m.to_dict() for m in msgs]})
+
+
+@socketio.on("mark_dm_read")
+def on_mark_dm_read(data):
+    with app.app_context():
+        if request.sid not in online_users:
+            return
+        user_id = online_users[request.sid]["id"]
+        from_id = (data.get("from_id") or "").strip()
+        if not from_id:
+            return
+        DirectMessage.query.filter_by(recipient_id=user_id, sender_id=from_id, read=False)\
+            .update({"read": True})
+        db.session.commit()
+
+
 # ═══════════════════════════════════════════════════════════════
 # SEED
 # ═══════════════════════════════════════════════════════════════
@@ -1004,23 +1253,4 @@ def seed():
 
 if __name__ == "__main__":
     seed()
-
-# Auto-create tables and seed on every startup — safe to run repeatedly
-with app.app_context():
-    db.create_all()
-    if not Settings.query.get(1):
-        db.session.add(Settings(id=1, lives_impacted=0))
-        db.session.commit()
-    if not User.query.filter_by(email="admin@bbof.org").first():
-        admin = User(
-            name="Foundation Admin",
-            email="admin@bbof.org",
-            password_hash=bcrypt.hashpw(b"Admin@123", bcrypt.gensalt()).decode(),
-            role="admin"
-        )
-        db.session.add(admin)
-        db.session.commit()
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    socketio.run(app, debug=False, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)
+    socketio.run(app, debug=False, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)

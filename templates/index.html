@@ -109,6 +109,30 @@ a{color:inherit;text-decoration:none} button,input,select,textarea{font-family:i
 .gallery-caption{padding:8px 12px;font-size:12.5px;color:var(--ink-soft);background:#fff}
 
 /* ── CHAT ── */
+/* ── Chat tab buttons ── */
+.chat-tab-btn{background:none;border:none;padding:10px 18px;font-size:14px;font-weight:600;color:var(--ink-soft);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:.15s}
+.chat-tab-btn:hover{color:var(--forest)}
+.chat-tab-btn.active-tab{color:var(--forest);border-bottom-color:var(--forest)}
+/* ── DM items ── */
+.dm-convo-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;transition:.15s}
+.dm-convo-item:hover{background:rgba(31,77,61,.06)}
+.dm-convo-item.active-dm{background:rgba(31,77,61,.1)}
+.dm-convo-name{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dm-convo-preview{font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dm-unread-pill{background:var(--danger);color:#fff;font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;flex-shrink:0}
+.dm-start-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;transition:.15s}
+.dm-start-item:hover{background:rgba(31,77,61,.06)}
+.dm-panel-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--paper)}
+/* ── Toast ── */
+#toast-container{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.toast{background:var(--forest-dark);color:#fff;padding:12px 16px;border-radius:12px;font-size:13.5px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.25);display:flex;align-items:center;gap:10px;pointer-events:all;cursor:pointer;animation:slideIn .3s ease;max-width:300px}
+.toast-avatar{width:32px;height:32px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--forest-dark);font-size:13px;flex-shrink:0;overflow:hidden}
+.toast-avatar img{width:100%;height:100%;object-fit:cover}
+.toast-text{flex:1;min-width:0}
+.toast-title{font-size:12px;color:rgba(255,255,255,.7);margin-bottom:2px}
+.toast-body{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+/* ── Chat layout ── */
 .chat-layout{display:flex;height:calc(100vh - 120px);min-height:400px;gap:0;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow)}
 .chat-main{flex:1;display:flex;flex-direction:column;background:var(--paper);min-width:0}
 .chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:var(--cream)}
@@ -213,6 +237,7 @@ a{color:inherit;text-decoration:none} button,input,select,textarea{font-family:i
   <button id="lightbox-next" onclick="lightboxNav(1)">&#8250;</button>
 </div>
 <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+<div id="toast-container"></div>
 
 <!-- ══ LANDING ══ -->
 <div id="page-landing" class="page active">
@@ -341,20 +366,50 @@ a{color:inherit;text-decoration:none} button,input,select,textarea{font-family:i
       </div>
       <!-- CHAT PAGE -->
       <div id="member-chat" class="dash-page">
-        <h1 class="serif" style="font-size:22px;color:var(--forest-dark);margin-bottom:5px">Community chat</h1>
-        <p style="color:var(--ink-soft);margin-bottom:16px;font-size:14px">Connect and socialise with fellow members in real time.</p>
-        <div class="chat-layout">
+        <h1 class="serif" style="font-size:22px;color:var(--forest-dark);margin-bottom:5px">Chat</h1>
+        <p style="color:var(--ink-soft);margin-bottom:14px;font-size:14px">Community group chat and private direct messages.</p>
+        <!-- Tab bar -->
+        <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--line)">
+          <button id="tab-community" class="chat-tab-btn active-tab" onclick="switchChatTab('community')">&#127757; Community chat</button>
+          <button id="tab-dm" class="chat-tab-btn" onclick="switchChatTab('dm')">&#128172; Direct messages <span id="dm-total-badge" style="display:none;background:var(--danger);color:#fff;font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;margin-left:5px">0</span></button>
+        </div>
+        <!-- Community chat panel -->
+        <div id="chat-panel-community" class="chat-layout">
           <div class="chat-main">
             <div class="chat-messages" id="chat-messages"><div class="chat-empty">Loading messages...</div></div>
             <div class="chat-input-row">
-              <input class="input" id="chat-input" placeholder="Type a message..." maxlength="1000" onkeydown="if(event.key==='Enter'&&!event.shiftKey){sendChatMsg();event.preventDefault()}"/>
+              <input class="input" id="chat-input" placeholder="Type a message to everyone..." maxlength="1000" onkeydown="if(event.key==='Enter'&&!event.shiftKey){sendChatMsg();event.preventDefault()}"/>
               <button class="btn btn-primary" onclick="sendChatMsg()" style="border-radius:50%;width:40px;height:40px;padding:0">&#10148;</button>
             </div>
           </div>
           <aside class="chat-sidebar">
-            <div class="chat-sidebar-head">Online now (<span id="online-count-badge">0</span>)</div>
+            <div class="chat-sidebar-head">Online (<span id="online-count-badge">0</span>)</div>
             <div class="online-list" id="online-list"></div>
           </aside>
+        </div>
+        <!-- DM panel -->
+        <div id="chat-panel-dm" style="display:none">
+          <div class="chat-layout" style="height:calc(100vh - 220px)">
+            <!-- Conversation list -->
+            <div style="width:220px;flex-shrink:0;background:var(--paper);border-right:1px solid var(--line);display:flex;flex-direction:column;border-radius:var(--radius) 0 0 var(--radius)">
+              <div style="padding:12px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);border-bottom:1px solid var(--line)">Conversations</div>
+              <div id="dm-convo-list" style="flex:1;overflow-y:auto;padding:8px"></div>
+              <div style="padding:10px 14px;border-top:1px solid var(--line)">
+                <div style="font-size:11.5px;font-weight:700;color:var(--ink-soft);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Online members</div>
+                <div id="dm-online-list" style="display:flex;flex-direction:column;gap:4px"></div>
+              </div>
+            </div>
+            <!-- Active DM -->
+            <div class="chat-main" id="dm-active-panel">
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;background:var(--cream)">
+                <div style="text-align:center;color:var(--ink-soft)">
+                  <div style="font-size:36px;margin-bottom:10px">&#128172;</div>
+                  <div style="font-size:14px;font-weight:600">Select a conversation or start a new one</div>
+                  <div style="font-size:13px;margin-top:4px">Click a member on the left to chat privately</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div id="member-profile" class="dash-page">
@@ -386,6 +441,7 @@ a{color:inherit;text-decoration:none} button,input,select,textarea{font-family:i
         <a class="nav-link" data-dp="admin-gallery" onclick="switchDash(this,'admin')">&#128444;&#65039; Gallery</a>
         <a class="nav-link" data-dp="admin-lives" onclick="switchDash(this,'admin')">&#10084;&#65039; Lives impacted</a>
         <a class="nav-link" data-dp="admin-reports" onclick="switchDash(this,'admin')">&#128451; Reports</a>
+        <a class="nav-link" data-dp="admin-sms" onclick="switchDash(this,'admin')">&#128241; SMS</a>
         <a class="nav-link" data-dp="admin-chat" onclick="switchDash(this,'admin')">&#128172; Community chat</a>
         <a class="nav-link" data-dp="admin-profile" onclick="switchDash(this,'admin')">&#128100; Profile settings</a>
       </nav>
@@ -500,13 +556,17 @@ a{color:inherit;text-decoration:none} button,input,select,textarea{font-family:i
 
       <!-- ADMIN CHAT -->
       <div id="admin-chat" class="dash-page">
-        <h1 class="serif" style="font-size:20px;color:var(--forest-dark);margin-bottom:5px">Community chat</h1>
-        <p style="color:var(--ink-soft);margin-bottom:16px;font-size:14px">Participate in the member community chat.</p>
-        <div class="chat-layout">
+        <h1 class="serif" style="font-size:20px;color:var(--forest-dark);margin-bottom:5px">Chat</h1>
+        <p style="color:var(--ink-soft);margin-bottom:14px;font-size:14px">Community group chat and private direct messages.</p>
+        <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--line)">
+          <button id="admin-tab-community" class="chat-tab-btn active-tab" onclick="switchChatTab('community')">&#127757; Community chat</button>
+          <button id="admin-tab-dm" class="chat-tab-btn" onclick="switchChatTab('dm')">&#128172; Direct messages <span id="admin-dm-total-badge" style="display:none;background:var(--danger);color:#fff;font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;margin-left:5px">0</span></button>
+        </div>
+        <div id="admin-chat-panel-community" class="chat-layout">
           <div class="chat-main">
             <div class="chat-messages" id="admin-chat-messages"><div class="chat-empty">Loading messages...</div></div>
             <div class="chat-input-row">
-              <input class="input" id="admin-chat-input" placeholder="Type a message..." maxlength="1000" onkeydown="if(event.key==='Enter'&&!event.shiftKey){sendChatMsg();event.preventDefault()}"/>
+              <input class="input" id="admin-chat-input" placeholder="Type a message to everyone..." maxlength="1000" onkeydown="if(event.key==='Enter'&&!event.shiftKey){sendChatMsg();event.preventDefault()}"/>
               <button class="btn btn-primary" onclick="sendChatMsg()" style="border-radius:50%;width:40px;height:40px;padding:0">&#10148;</button>
             </div>
           </div>
@@ -515,6 +575,83 @@ a{color:inherit;text-decoration:none} button,input,select,textarea{font-family:i
             <div class="online-list" id="admin-online-list"></div>
           </aside>
         </div>
+        <div id="admin-chat-panel-dm" style="display:none">
+          <div class="chat-layout" style="height:calc(100vh - 220px)">
+            <div style="width:220px;flex-shrink:0;background:var(--paper);border-right:1px solid var(--line);display:flex;flex-direction:column;border-radius:var(--radius) 0 0 var(--radius)">
+              <div style="padding:12px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);border-bottom:1px solid var(--line)">Conversations</div>
+              <div id="admin-dm-convo-list" style="flex:1;overflow-y:auto;padding:8px"></div>
+              <div style="padding:10px 14px;border-top:1px solid var(--line)">
+                <div style="font-size:11.5px;font-weight:700;color:var(--ink-soft);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Online members</div>
+                <div id="admin-dm-online-list" style="display:flex;flex-direction:column;gap:4px"></div>
+              </div>
+            </div>
+            <div class="chat-main" id="admin-dm-active-panel">
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;background:var(--cream)">
+                <div style="text-align:center;color:var(--ink-soft)"><div style="font-size:36px;margin-bottom:10px">&#128172;</div><div style="font-size:14px;font-weight:600">Select a conversation or start a new one</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SMS PAGE -->
+      <div id="admin-sms" class="dash-page">
+        <h1 class="serif" style="font-size:20px;color:var(--forest-dark);margin-bottom:5px">&#128241; Send SMS</h1>
+        <p style="color:var(--ink-soft);margin-bottom:22px;font-size:14px">Send text messages to members for dues reminders and announcements. Use <strong>{name}</strong> to personalise each message.</p>
+
+        <div class="card" style="padding:24px 26px;margin-bottom:22px;max-width:620px">
+          <div class="form-grid">
+            <!-- Recipients -->
+            <div>
+              <label class="field-label">Recipients</label>
+              <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:600">
+                  <input type="radio" name="sms-type" value="all" id="sms-type-all" onchange="smsTypeChanged()" checked style="accent-color:var(--forest);width:16px;height:16px"/>
+                  All active members with phone numbers
+                  <span id="sms-all-count" style="background:var(--cream);color:var(--ink-soft);font-size:12px;font-weight:700;padding:2px 10px;border-radius:999px;border:1px solid var(--line)">loading...</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:600">
+                  <input type="radio" name="sms-type" value="individual" id="sms-type-ind" onchange="smsTypeChanged()" style="accent-color:var(--forest);width:16px;height:16px"/>
+                  Specific member
+                </label>
+              </div>
+            </div>
+            <!-- Individual selector -->
+            <div id="sms-member-row" style="display:none">
+              <label class="field-label">Select member</label>
+              <select class="input" id="sms-member-sel">
+                <option value="">Choose member...</option>
+              </select>
+              <div id="sms-no-phone-warn" style="display:none;margin-top:6px" class="alert alert-error">This member has no phone number on record.</div>
+            </div>
+            <!-- Message -->
+            <div>
+              <label class="field-label">Message <span style="font-weight:400;text-transform:none;letter-spacing:0">(tip: use {name} to personalise)</span></label>
+              <textarea class="input" id="sms-message" rows="4" maxlength="640" oninput="updateSmsCount()" placeholder="Dear {name}, this is a reminder that your dues for this month are due. Please make payment at your earliest convenience. - B.BOF Admin"></textarea>
+              <div style="display:flex;justify-content:space-between;margin-top:5px">
+                <span style="font-size:12px;color:var(--ink-soft)" id="sms-char-count">0 / 640 characters</span>
+                <span style="font-size:12px;color:var(--ink-soft)" id="sms-parts">1 SMS part</span>
+              </div>
+            </div>
+            <!-- No-phone warning -->
+            <div id="sms-nophone-info" style="display:none;padding:10px 14px;background:rgba(201,162,75,.12);border-radius:10px;border:1px solid var(--gold);font-size:13px;color:var(--ink-soft)">
+              &#9888;&#65039; <strong id="sms-nophone-count">0</strong> active member(s) have no phone number and will be skipped.
+              <a href="#" onclick="switchDash(document.querySelector('[data-dp=admin-members]'),'admin');return false" style="color:var(--forest);font-weight:700;margin-left:6px">Add phone numbers &rarr;</a>
+            </div>
+            <!-- Provider status -->
+            <div id="sms-provider-warn" style="display:none;padding:10px 14px;background:#fbeae8;border-radius:10px;font-size:13px;color:var(--danger)">
+              &#128683; SMS not configured. Add <strong>ARKESEL_API_KEY</strong> and <strong>ARKESEL_SENDER_ID</strong> to your Render environment variables. Get your API key from <strong>arkesel.com</strong> &rarr; Dashboard &rarr; API.
+            </div>
+            <div id="sms-send-result"></div>
+            <button class="btn btn-primary" id="sms-send-btn" onclick="sendSMS()" style="width:fit-content">
+              &#128241; Send SMS
+            </button>
+          </div>
+        </div>
+
+        <!-- SMS History -->
+        <h2 class="serif" style="font-size:17px;color:var(--forest-dark);margin-bottom:12px">SMS history</h2>
+        <div class="card" style="padding:4px 0"><div class="table-scroll" id="sms-logs-table"></div></div>
       </div>
 
       <div id="admin-profile" class="dash-page">
@@ -597,15 +734,17 @@ a{color:inherit;text-decoration:none} button,input,select,textarea{font-family:i
 // ═══════════════════════════════════════════════════════
 let currentUser=null,allMembers=[],galleryDataUrl=null,newsDataUrl=null,profileDataUrl=null;
 let lightboxImages=[],lightboxIndex=0;
-let socket=null,chatHistoryLoaded=false,onlineUsers=[],unreadCount=0;
-let activeChatPage=null; // 'member-chat' or 'admin-chat'
+let socket=null,chatHistoryLoaded=false,onlineUsers=[],unreadCommunity=0;
+let activeDashPage=null,activeChatTab='community';
+let currentDMPartner=null; // {id,name,image}
+let dmUnreadMap={};        // sender_id -> count
 
 // ═══════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════
 function fmt(n){return'GHS '+Number(n||0).toLocaleString('en-GH',{minimumFractionDigits:2,maximumFractionDigits:2})}
 function fmtDate(s){return new Date(s).toLocaleDateString('en-GB',{year:'numeric',month:'short',day:'numeric'})}
-function fmtTime(s){return new Date(s).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
+function fmtTime(s){const d=new Date(s);return d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
 function el(id){return document.getElementById(id)}
 function setHTML(id,html){const e=el(id);if(e)e.innerHTML=html}
 function setText(id,t){const e=el(id);if(e)e.textContent=t}
@@ -614,14 +753,16 @@ function hideAlert(id){const e=el(id);if(e)e.style.display='none'}
 async function api(url,opts={}){const res=await fetch(url,{headers:{'Content-Type':'application/json'},...opts});const data=await res.json();return{ok:res.ok,data}}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function avatarHtml(user,size=34){
-  if(user.profile_image)return`<div style="width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${user.profile_image}" style="width:100%;height:100%;object-fit:cover"/></div>`;
-  return`<div style="width:${size}px;height:${size}px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--forest-dark);font-size:${Math.round(size*.4)}px;flex-shrink:0">${(user.name||'?')[0].toUpperCase()}</div>`;
+  const src=user.profile_image||user.partner_image||null;
+  const name=user.name||user.partner_name||'?';
+  if(src)return`<div style="width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${esc(src)}" style="width:100%;height:100%;object-fit:cover"/></div>`;
+  return`<div style="width:${size}px;height:${size}px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--forest-dark);font-size:${Math.round(size*.4)}px;flex-shrink:0">${name[0].toUpperCase()}</div>`;
 }
 function updateNavAvatar(prefix,user){
   ['nav','topbar'].forEach(loc=>{
     const wrap=el(`${prefix}-${loc}-avatar`);if(!wrap)return;
-    if(user.profile_image){wrap.innerHTML=`<img src="${user.profile_image}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`}
-    else{wrap.textContent=(user.name||'?')[0].toUpperCase()}
+    if(user.profile_image){wrap.innerHTML=`<img src="${esc(user.profile_image)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`}
+    else wrap.textContent=(user.name||'?')[0].toUpperCase();
   });
   setText(prefix+'-nav-name',user.name);
 }
@@ -634,10 +775,24 @@ function galleryItemHtml(img,all,i){
 }
 
 // ═══════════════════════════════════════════════════════
+// TOAST NOTIFICATIONS
+// ═══════════════════════════════════════════════════════
+function showToast(title,body,avatarImg,onClick){
+  const container=el('toast-container');
+  const toast=document.createElement('div');
+  toast.className='toast';
+  toast.innerHTML=`<div class="toast-avatar">${avatarImg?`<img src="${esc(avatarImg)}" alt=""/>`:title[0].toUpperCase()}</div>
+    <div class="toast-text"><div class="toast-title">${esc(title)}</div><div class="toast-body">${esc(body)}</div></div>`;
+  toast.onclick=()=>{container.removeChild(toast);if(onClick)onClick()};
+  container.appendChild(toast);
+  setTimeout(()=>{if(container.contains(toast))container.removeChild(toast)},5000);
+}
+
+// ═══════════════════════════════════════════════════════
 // MOBILE SIDEBAR
 // ═══════════════════════════════════════════════════════
-function openSidebar(id){document.getElementById(id).classList.add('open');document.getElementById('sidebar-overlay').classList.add('open');document.body.style.overflow='hidden'}
-function closeSidebar(){document.querySelectorAll('.sidebar').forEach(s=>s.classList.remove('open'));document.getElementById('sidebar-overlay').classList.remove('open');document.body.style.overflow=''}
+function openSidebar(id){document.getElementById(id).classList.add('open');el('sidebar-overlay').classList.add('open');document.body.style.overflow='hidden'}
+function closeSidebar(){document.querySelectorAll('.sidebar').forEach(s=>s.classList.remove('open'));el('sidebar-overlay').classList.remove('open');document.body.style.overflow=''}
 
 // ═══════════════════════════════════════════════════════
 // LIGHTBOX
@@ -667,10 +822,9 @@ function switchDash(el_,role){
   el_.classList.add('active');
   const target=el_.getAttribute('data-dp');
   document.querySelectorAll('.dash-page').forEach(p=>p.classList.remove('active'));
+  activeDashPage=target;
   const dp=el(target);if(dp){dp.classList.add('active');loadDashPage(target)}
-  // clear unread when switching to chat
-  if(target==='member-chat'||target==='admin-chat'){clearUnread()}
-  activeChatPage=target;
+  if(target==='member-chat'||target==='admin-chat'){clearUnreadCommunity()}
 }
 
 // ═══════════════════════════════════════════════════════
@@ -713,51 +867,86 @@ async function loadLanding(){
 }
 
 // ═══════════════════════════════════════════════════════
-// SOCKET.IO CHAT
+// SOCKET.IO – COMMUNITY CHAT + DMs
 // ═══════════════════════════════════════════════════════
 function initSocket(){
   if(socket)return;
   socket=io({transports:['websocket','polling']});
-  socket.on('connect',()=>console.log('Chat connected'));
+  socket.on('connect',()=>console.log('Socket connected'));
   socket.on('disconnect',()=>{onlineUsers=[];renderOnlineUsers()});
+
+  // Community chat
   socket.on('chat_history',(msgs)=>{
     chatHistoryLoaded=true;
-    const mbx=el('chat-messages'),abx=el('admin-chat-messages');
-    if(mbx)mbx.innerHTML='';if(abx)abx.innerHTML='';
-    if(msgs.length===0){
-      if(mbx)mbx.innerHTML='<div class="chat-empty">No messages yet. Say hello!</div>';
-      if(abx)abx.innerHTML='<div class="chat-empty">No messages yet. Say hello!</div>';
-    } else {
+    [el('chat-messages'),el('admin-chat-messages')].forEach(box=>{
+      if(!box)return;
+      box.innerHTML=msgs.length===0?'<div class="chat-empty">No messages yet. Say hello!</div>':'';
       msgs.forEach(m=>appendChatMsg(m,false));
-      scrollChat();
-    }
+    });
+    scrollChat();
   });
   socket.on('new_message',(msg)=>{
     appendChatMsg(msg,true);
-    // unread if chat not currently visible
-    const chatVisible=(activeChatPage==='member-chat'||activeChatPage==='admin-chat');
-    if(!chatVisible&&msg.user_id!==currentUser?.id){
-      unreadCount++;
-      const badge=el('member-unread-badge');
-      if(badge){badge.textContent=unreadCount;badge.style.display='inline'}
+    if(activeDashPage!=='member-chat'&&activeDashPage!=='admin-chat'){
+      unreadCommunity++;
+      const badge=el('member-unread-badge');if(badge){badge.textContent=unreadCommunity;badge.style.display='inline'}
     }
   });
-  socket.on('users_online',(users)=>{onlineUsers=users;renderOnlineUsers()});
-  socket.on('connect_error',(e)=>console.warn('Chat error:',e));
+
+  // Online presence
+  socket.on('users_online',(users)=>{onlineUsers=users;renderOnlineUsers();renderDMOnlineList()});
+
+  // DMs
+  socket.on('dm_message',(msg)=>{
+    // If DM panel is open with this partner, append message
+    if(currentDMPartner&&(msg.sender_id===currentDMPartner.id||msg.recipient_id===currentDMPartner.id)){
+      appendDMMsg(msg);
+      scrollDMChat();
+      // Mark as read immediately
+      if(msg.sender_id===currentDMPartner.id)socket.emit('mark_dm_read',{from_id:currentDMPartner.id});
+    } else if(msg.sender_id!==currentUser?.id){
+      // Update unread count
+      dmUnreadMap[msg.sender_id]=(dmUnreadMap[msg.sender_id]||0)+1;
+      updateDMBadge();
+    }
+    // Refresh conversation list
+    if(activeChatTab==='dm')loadDMConversations();
+  });
+  socket.on('dm_history',(data)=>{
+    renderDMHistory(data.with_user_id,data.messages);
+  });
+  socket.on('dm_notification',(notif)=>{
+    // Show toast notification
+    const isChatOpen=(activeDashPage==='member-chat'||activeDashPage==='admin-chat')&&activeChatTab==='dm'&&currentDMPartner?.id===notif.from_id;
+    if(!isChatOpen){
+      showToast('New private message from '+notif.from_name,'Tap to open',notif.from_image,()=>{
+        openDMWith(notif.from_id,notif.from_name,notif.from_image);
+      });
+    }
+  });
+  socket.on('connect_error',(e)=>console.warn('Socket error:',e));
 }
 
-function clearUnread(){
-  unreadCount=0;
-  const badge=el('member-unread-badge');
-  if(badge)badge.style.display='none';
+function clearUnreadCommunity(){
+  unreadCommunity=0;
+  const badge=el('member-unread-badge');if(badge)badge.style.display='none';
 }
 
+function updateDMBadge(){
+  const total=Object.values(dmUnreadMap).reduce((s,v)=>s+v,0);
+  ['dm-total-badge','admin-dm-total-badge'].forEach(id=>{
+    const b=el(id);if(!b)return;
+    if(total>0){b.textContent=total;b.style.display='inline'}else b.style.display='none';
+  });
+}
+
+// ─── Community chat helpers ───────────────────────────
 function appendChatMsg(msg,scroll){
   const isMine=msg.user_id===currentUser?.id;
   const bubble=`<div class="chat-bubble ${isMine?'mine':''}">
     <div class="bubble-avatar">${msg.user_profile_image?`<img src="${esc(msg.user_profile_image)}" alt=""/>`:(msg.user_name||'?')[0].toUpperCase()}</div>
     <div class="bubble-body">
-      ${!isMine?`<div class="bubble-name">${esc(msg.user_name)}</div>`:`<div class="bubble-name bubble-mine-name">You</div>`}
+      <div class="bubble-name ${isMine?'bubble-mine-name':''}">${isMine?'You':esc(msg.user_name)}</div>
       <div class="bubble-text">${esc(msg.content)}</div>
       <div class="bubble-time ${isMine?'bubble-mine-time':''}">${fmtTime(msg.created_at)}</div>
     </div>
@@ -769,36 +958,175 @@ function appendChatMsg(msg,scroll){
   });
   if(scroll)scrollChat();
 }
-
-function scrollChat(){
-  [el('chat-messages'),el('admin-chat-messages')].forEach(box=>{if(box)box.scrollTop=box.scrollHeight});
-}
+function scrollChat(){[el('chat-messages'),el('admin-chat-messages')].forEach(box=>{if(box)box.scrollTop=box.scrollHeight})}
 
 function sendChatMsg(){
-  const input=el(currentUser?.role==='admin'?'admin-chat-input':'chat-input');
-  if(!input)return;
-  const content=input.value.trim();
-  if(!content||!socket)return;
-  socket.emit('send_message',{content});
-  input.value='';
+  const isAdmin=currentUser?.role==='admin';
+  const input=el(isAdmin?'admin-chat-input':'chat-input');
+  if(!input||!socket)return;
+  if(activeChatTab==='dm'&&currentDMPartner){
+    // Send DM
+    const content=input.value.trim();if(!content)return;
+    socket.emit('send_dm',{recipient_id:currentDMPartner.id,content});
+    input.value='';
+  } else {
+    // Community
+    const content=input.value.trim();if(!content)return;
+    socket.emit('send_message',{content});
+    input.value='';
+  }
 }
 
+// ─── Online users list ─────────────────────────────────
 function renderOnlineUsers(){
   const count=onlineUsers.length;
-  setText('online-count-badge',count);
-  setText('admin-online-count-badge',count);
-  setText('m-online-count',count);
-  const html=onlineUsers.length===0?'<p style="font-size:12px;color:var(--ink-soft);padding:12px 6px">No one else online</p>'
+  setText('online-count-badge',count);setText('admin-online-count-badge',count);setText('m-online-count',count);
+  const html=onlineUsers.length===0
+    ?'<p style="font-size:12px;color:var(--ink-soft);padding:10px 6px">No one else online</p>'
     :onlineUsers.map(u=>`<div class="online-item">
-      <div class="online-dot"></div>
-      <div>${u.profile_image?`<img src="${esc(u.profile_image)}" style="width:26px;height:26px;border-radius:50%;object-fit:cover"/>`:`<div style="width:26px;height:26px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:var(--forest-dark)">${(u.name||'?')[0].toUpperCase()}</div>`}</div>
+        <div class="online-dot"></div>
+        <div>${u.profile_image?`<img src="${esc(u.profile_image)}" style="width:26px;height:26px;border-radius:50%;object-fit:cover"/>`
+          :`<div style="width:26px;height:26px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:var(--forest-dark)">${(u.name||'?')[0].toUpperCase()}</div>`}</div>
+        <div style="flex:1;min-width:0">
+          <div class="online-name">${esc(u.name)}</div>
+          ${u.id===currentUser?.id?'<div class="online-you">(you)</div>':''}
+        </div>
+        ${u.id!==currentUser?.id?`<button onclick="openDMWith('${u.id}','${esc(u.name)}','${u.profile_image||''}')" title="Send private message" style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:16px;padding:2px 4px;flex-shrink:0">&#9993;</button>`:''}
+      </div>`).join('');
+  setHTML('online-list',html);setHTML('admin-online-list',html);
+}
+
+// ─── Chat tab switching ───────────────────────────────
+function switchChatTab(tab){
+  activeChatTab=tab;
+  const isAdmin=currentUser?.role==='admin';
+  const pfx=isAdmin?'admin-':'';
+
+  // Toggle tab button styles
+  const tabIds=['community','dm'];
+  tabIds.forEach(t=>{
+    const btn=el(`${isAdmin?'admin-':''}tab-${t}`);
+    if(btn){btn.className='chat-tab-btn'+(t===tab?' active-tab':'')}
+  });
+
+  // Toggle panels
+  const commPanel=el(`${pfx}chat-panel-community`);
+  const dmPanel=el(`${pfx}chat-panel-dm`);
+  if(commPanel)commPanel.style.display=tab==='community'?'flex':'none';
+  if(dmPanel)dmPanel.style.display=tab==='dm'?'block':'none';
+
+  if(tab==='community'){
+    if(chatHistoryLoaded)scrollChat();
+  } else {
+    loadDMConversations();
+  }
+  // Clear DM badge when opening DM tab
+  if(tab==='dm'){
+    if(currentDMPartner)socket?.emit('mark_dm_read',{from_id:currentDMPartner.id});
+  }
+}
+
+// ─── DM: render online list in DM panel ───────────────
+function renderDMOnlineList(){
+  const others=onlineUsers.filter(u=>u.id!==currentUser?.id);
+  const html=others.length===0
+    ?'<p style="font-size:12px;color:var(--ink-soft)">No one else online</p>'
+    :others.map(u=>`<div class="dm-start-item" onclick="openDMWith('${u.id}','${esc(u.name)}','${u.profile_image||''}')">
+        <div class="online-dot" style="width:8px;height:8px"></div>
+        ${u.profile_image?`<img src="${esc(u.profile_image)}" style="width:22px;height:22px;border-radius:50%;object-fit:cover"/>`
+          :`<div style="width:22px;height:22px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10px;color:var(--forest-dark)">${(u.name||'?')[0].toUpperCase()}</div>`}
+        <span style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(u.name)}</span>
+      </div>`).join('');
+  setHTML('dm-online-list',html);setHTML('admin-dm-online-list',html);
+}
+
+// ─── DM: open a conversation ──────────────────────────
+function openDMWith(partnerId,partnerName,partnerImage){
+  currentDMPartner={id:partnerId,name:partnerName,image:partnerImage||null};
+  // Clear unread for this partner
+  dmUnreadMap[partnerId]=0;
+  updateDMBadge();
+  // Switch to DM tab if not already
+  if(activeChatTab!=='dm')switchChatTab('dm');
+  // Update active state in conversation list
+  document.querySelectorAll('.dm-convo-item').forEach(i=>i.classList.remove('active-dm'));
+  const activeItem=document.querySelector(`[data-dm-partner="${partnerId}"]`);
+  if(activeItem)activeItem.classList.add('active-dm');
+  // Render DM panel
+  renderActiveDMPanel();
+  // Request history
+  socket?.emit('get_dm_history',{user_id:partnerId});
+}
+
+function renderActiveDMPanel(){
+  const partner=currentDMPartner;if(!partner)return;
+  const isAdmin=currentUser?.role==='admin';
+  const panelId=isAdmin?'admin-dm-active-panel':'dm-active-panel';
+  const panel=el(panelId);if(!panel)return;
+  panel.innerHTML=`
+    <div class="dm-panel-header">
+      ${partner.image?`<img src="${esc(partner.image)}" style="width:34px;height:34px;border-radius:50%;object-fit:cover"/>`
+        :`<div style="width:34px;height:34px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:var(--forest-dark)">${partner.name[0].toUpperCase()}</div>`}
       <div>
-        <div class="online-name">${esc(u.name)}</div>
-        ${u.id===currentUser?.id?'<div class="online-you">(you)</div>':''}
+        <div style="font-weight:700;font-size:14px">${esc(partner.name)}</div>
+        <div style="font-size:12px;color:var(--ink-soft)">Private conversation</div>
       </div>
-    </div>`).join('');
-  setHTML('online-list',html);
-  setHTML('admin-online-list',html);
+    </div>
+    <div class="chat-messages" id="dm-messages-box" style="background:var(--cream)"><div class="chat-empty">Loading...</div></div>
+    <div class="chat-input-row">
+      <input class="input" id="${isAdmin?'admin-':''}dm-msg-input" placeholder="Send a private message to ${esc(partner.name)}..." maxlength="1000"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){sendChatMsg();event.preventDefault()}"/>
+      <button class="btn btn-primary" onclick="sendChatMsg()" style="border-radius:50%;width:40px;height:40px;padding:0">&#10148;</button>
+    </div>`;
+  // Update input reference for sendChatMsg
+  const chatInput=el('chat-input');if(chatInput)chatInput;// keep community input
+}
+
+function appendDMMsg(msg){
+  const box=el('dm-messages-box');if(!box)return;
+  const empty=box.querySelector('.chat-empty');if(empty)empty.remove();
+  const isMine=msg.sender_id===currentUser?.id;
+  box.insertAdjacentHTML('beforeend',`<div class="chat-bubble ${isMine?'mine':''}">
+    <div class="bubble-avatar">${msg.sender_profile_image?`<img src="${esc(msg.sender_profile_image)}" alt=""/>`:(msg.sender_name||'?')[0].toUpperCase()}</div>
+    <div class="bubble-body">
+      <div class="bubble-name ${isMine?'bubble-mine-name':''}">${isMine?'You':esc(msg.sender_name)}</div>
+      <div class="bubble-text">${esc(msg.content)}</div>
+      <div class="bubble-time ${isMine?'bubble-mine-time':''}">${fmtTime(msg.created_at)}</div>
+    </div>
+  </div>`);
+}
+
+function renderDMHistory(with_user_id,messages){
+  if(currentDMPartner?.id!==with_user_id)return;
+  const box=el('dm-messages-box');if(!box)return;
+  box.innerHTML=messages.length===0?'<div class="chat-empty">No messages yet. Say something!</div>':'';
+  messages.forEach(m=>appendDMMsg(m));
+  scrollDMChat();
+}
+
+function scrollDMChat(){const box=el('dm-messages-box');if(box)box.scrollTop=box.scrollHeight}
+
+// ─── DM: conversation list ────────────────────────────
+async function loadDMConversations(){
+  const{data}=await api('/api/dm/conversations');
+  const convos=data.conversations||[];
+  const listHtml=convos.length===0
+    ?'<p style="font-size:13px;color:var(--ink-soft);padding:10px 6px">No conversations yet.<br/>Click a member in the online list to start one.</p>'
+    :convos.map(c=>`<div class="dm-convo-item${currentDMPartner?.id===c.partner_id?' active-dm':''}" data-dm-partner="${c.partner_id}" onclick="openDMWith('${c.partner_id}','${esc(c.partner_name)}','${c.partner_image||''}')">
+        ${c.partner_image?`<img src="${esc(c.partner_image)}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0"/>`
+          :`<div style="width:34px;height:34px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:var(--forest-dark);flex-shrink:0">${c.partner_name[0].toUpperCase()}</div>`}
+        <div style="flex:1;min-width:0">
+          <div class="dm-convo-name">${esc(c.partner_name)}</div>
+          <div class="dm-convo-preview">${esc(c.last_message||'')}</div>
+        </div>
+        ${c.unread>0?`<span class="dm-unread-pill">${c.unread}</span>`:''}
+      </div>`).join('');
+  setHTML('dm-convo-list',listHtml);setHTML('admin-dm-convo-list',listHtml);
+  // Update total unread badge
+  const totalUnread=convos.reduce((s,c)=>s+c.unread,0);
+  if(totalUnread>0){
+    ['dm-total-badge','admin-dm-total-badge'].forEach(id=>{const b=el(id);if(b){b.textContent=totalUnread;b.style.display='inline'}});
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -812,11 +1140,13 @@ async function loadMemberDash(){
   initSocket();
   loadDashPage('member-overview');
 }
+
 async function loadDashPage(id){
+  activeDashPage=id;
   if(id==='member-overview')await loadMemberOverview();
   else if(id==='member-payments')await loadMemberPayments();
   else if(id==='member-gallery')await loadMemberGallery();
-  else if(id==='member-chat'){activeChatPage='member-chat';clearUnread();if(chatHistoryLoaded)scrollChat();}
+  else if(id==='member-chat'){clearUnreadCommunity();if(chatHistoryLoaded)scrollChat();}
   else if(id==='member-profile')renderProfileForm('member-profile-form-wrap','member');
   else if(id==='admin-overview')await loadAdminOverview();
   else if(id==='admin-members')await loadAdminMembers();
@@ -827,7 +1157,8 @@ async function loadDashPage(id){
   else if(id==='admin-gallery')await loadAdminGallery();
   else if(id==='admin-lives')await loadAdminLives();
   else if(id==='admin-reports')await loadAdminReports();
-  else if(id==='admin-chat'){activeChatPage='admin-chat';clearUnread();if(chatHistoryLoaded)scrollChat();}
+  else if(id==='admin-sms')await loadAdminSMS();
+  else if(id==='admin-chat'){clearUnreadCommunity();if(chatHistoryLoaded)scrollChat();}
   else if(id==='admin-profile')renderProfileForm('admin-profile-form-wrap','admin');
 }
 
@@ -835,18 +1166,15 @@ async function loadMemberOverview(){
   const[pR,fR,sR,cR]=await Promise.all([api('/api/payments/mine'),api('/api/finance'),api('/api/settings'),api('/api/members/count')]);
   const payments=pR.data.payments||[],summary=fR.data.summary||{};
   setText('m-my-total',fmt(payments.reduce((s,p)=>s+p.amount,0)));
-  setText('m-all-dues',fmt(summary.total_dues));
-  setText('m-net-wealth',fmt(summary.net_wealth));
+  setText('m-all-dues',fmt(summary.total_dues));setText('m-net-wealth',fmt(summary.net_wealth));
   setText('m-lives',(sR.data.settings?.lives_impacted||0).toLocaleString());
-  setText('m-total-members',cR.data.total||0);
-  setText('m-active-members',cR.data.active||0);
+  setText('m-total-members',cR.data.total||0);setText('m-active-members',cR.data.active||0);
   setText('m-online-count',onlineUsers.length);
   setHTML('m-recent-payments',payments.length===0?'<p style="color:var(--ink-soft);font-size:14px;padding:4px 0">No payments recorded yet.</p>'
     :`<table class="data-table"><thead><tr><th>Month</th><th>Amount</th><th class="hide-sm">Note</th><th class="hide-sm">Date</th></tr></thead><tbody>
       ${payments.slice(0,5).map(p=>`<tr><td>${esc(p.for_month)}</td><td>${fmt(p.amount)}</td><td class="hide-sm">${esc(p.note||'-')}</td><td class="hide-sm">${fmtDate(p.recorded_at)}</td></tr>`).join('')}
     </tbody></table>`);
 }
-
 async function loadMemberPayments(){
   const{data}=await api('/api/payments/mine');const payments=data.payments||[];
   setText('m-pay-total',fmt(payments.reduce((s,p)=>s+p.amount,0)));
@@ -855,10 +1183,9 @@ async function loadMemberPayments(){
       ${payments.map(p=>`<tr><td>${esc(p.for_month)}</td><td>${fmt(p.amount)}</td><td class="hide-sm">${esc(p.note||'-')}</td><td class="hide-sm">${fmtDate(p.recorded_at)}</td></tr>`).join('')}
     </tbody></table>`);
 }
-
 async function loadMemberGallery(){
   const{data}=await api('/api/gallery');const images=data.images||[];
-  setHTML('m-gallery-grid',images.length===0?'<div class="card empty-state" style="grid-column:1/-1">No photos uploaded yet.</div>'
+  setHTML('m-gallery-grid',images.length===0?'<div class="card empty-state" style="grid-column:1/-1">No photos yet.</div>'
     :images.map((img,i)=>galleryItemHtml(img,images,i)).join(''));
 }
 
@@ -1007,7 +1334,7 @@ async function loadAdminGallery(){
   if(images.length===0){setHTML('a-gallery-grid','<div class="card empty-state" style="grid-column:1/-1">No photos uploaded yet.</div>');return}
   setHTML('a-gallery-grid',images.map((img,i)=>`
     <div style="position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);cursor:pointer" onclick='openLightbox(${JSON.stringify(images)},${i})'>
-      <img src="${esc(img.url)}" alt="${esc(img.caption||'')}" style="width:100%;height:155px;object-fit:cover;display:block;transition:transform .3s" loading="lazy"/>
+      <img src="${esc(img.url)}" alt="${esc(img.caption||'')}" style="width:100%;height:155px;object-fit:cover;display:block" loading="lazy"/>
       <div style="position:absolute;inset:0;background:rgba(20,51,41,0);display:flex;align-items:center;justify-content:center;transition:.3s" onmouseenter="this.style.background='rgba(20,51,41,.35)';this.querySelector('span').style.opacity='1'" onmouseleave="this.style.background='rgba(20,51,41,0)';this.querySelector('span').style.opacity='0'"><span style="color:#fff;font-size:24px;opacity:0;transition:.3s">&#128269;</span></div>
       ${img.caption?`<div style="padding:7px 10px;font-size:12.5px;color:var(--ink-soft);background:#fff">${esc(img.caption)}</div>`:''}
       <button onclick="event.stopPropagation();deleteGalleryImg('${img.id}')" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.65);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600">Remove</button>
@@ -1039,13 +1366,117 @@ async function loadAdminReports(){
   if(members.length===0){setHTML('a-reports-table','<p class="empty-state">No members to report on yet.</p>');return}
   setHTML('a-reports-table',`<table class="data-table"><thead><tr><th></th><th>Name</th><th class="hide-sm">Email</th><th class="hide-sm">Status</th><th>Action</th></tr></thead><tbody>
     ${members.map(m=>`<tr>
-      <td>${avatarHtml(m,30)}</td>
-      <td><strong>${esc(m.name)}</strong></td>
+      <td>${avatarHtml(m,30)}</td><td><strong>${esc(m.name)}</strong></td>
       <td class="hide-sm" style="font-size:13px">${esc(m.email)}</td>
       <td class="hide-sm"><span class="${m.status==='active'?'pill-active':'pill-terminated'}">${m.status}</span></td>
       <td><a class="btn btn-outline btn-sm" href="/api/admin/reports/member/${m.id}" target="_blank" style="display:inline-flex">&#128451; Download PDF</a></td>
     </tr>`).join('')}
   </tbody></table>`);
+}
+
+// ═══════════════════════════════════════════════════════
+// SMS
+// ═══════════════════════════════════════════════════════
+let smsAllMembers=[];
+
+async function loadAdminSMS(){
+  // Load members for dropdowns and counts
+  const{data}=await api('/api/admin/members');
+  smsAllMembers=(data.members||[]).filter(m=>m.status==='active');
+  const withPhone=smsAllMembers.filter(m=>m.phone);
+  const noPhone=smsAllMembers.filter(m=>!m.phone);
+
+  setText('sms-all-count',`${withPhone.length} member${withPhone.length!==1?'s':''}`);
+
+  // Populate individual dropdown
+  const sel=el('sms-member-sel');
+  if(sel){
+    sel.innerHTML='<option value="">Choose member...</option>'
+      +smsAllMembers.map(m=>`<option value="${m.id}" data-phone="${m.phone||''}">${esc(m.name)}${m.phone?'':' (no phone)'}</option>`).join('');
+    sel.onchange=()=>{
+      const opt=sel.options[sel.selectedIndex];
+      const warn=el('sms-no-phone-warn');
+      if(warn)warn.style.display=opt&&!opt.dataset.phone?'block':'none';
+    };
+  }
+
+  // Show no-phone warning
+  const nophoneDiv=el('sms-nophone-info');
+  if(nophoneDiv){
+    if(noPhone.length>0){setText('sms-nophone-count',noPhone.length);nophoneDiv.style.display='block'}
+    else nophoneDiv.style.display='none';
+  }
+
+  updateSmsCount();
+  await loadSMSLogs();
+}
+
+function smsTypeChanged(){
+  const isInd=el('sms-type-ind')?.checked;
+  const row=el('sms-member-row');
+  if(row)row.style.display=isInd?'block':'none';
+}
+
+function updateSmsCount(){
+  const msg=el('sms-message')?.value||'';
+  const len=msg.length;
+  const parts=Math.ceil(len/160)||1;
+  setText('sms-char-count',`${len} / 640 characters`);
+  setText('sms-parts',`${parts} SMS part${parts!==1?'s':''}`);
+}
+
+async function sendSMS(){
+  const type=el('sms-type-all')?.checked?'all':'individual';
+  const message=(el('sms-message')?.value||'').trim();
+  const userId=el('sms-member-sel')?.value;
+  setHTML('sms-send-result','');
+
+  if(!message){setHTML('sms-send-result','<div class="alert alert-error">Please write a message.</div>');return}
+  if(type==='individual'&&!userId){setHTML('sms-send-result','<div class="alert alert-error">Please select a member.</div>');return}
+
+  const btn=el('sms-send-btn');if(btn){btn.disabled=true;btn.textContent='Sending...'}
+  const body={type,message};if(type==='individual')body.user_id=userId;
+  const{ok,data}=await api('/api/admin/sms/send',{method:'POST',body:JSON.stringify(body)});
+  if(btn){btn.disabled=false;btn.textContent='&#128241; Send SMS'}
+
+  if(!ok){
+    const errMsg=data.error||'Could not send SMS.';
+    setHTML('sms-send-result',`<div class="alert alert-error">${esc(errMsg)}</div>`);
+    if(errMsg.includes('not configured')){
+      const warn=el('sms-provider-warn');if(warn)warn.style.display='block';
+    }
+    return;
+  }
+
+  const{sent,failed,results}=data;
+  const resultHtml=`<div class="alert alert-${failed===0?'success':'error'}" style="margin-bottom:0">
+    <strong>Done!</strong> ${sent} sent${failed>0?`, ${failed} failed`:'.'}<br/>
+    <div style="margin-top:8px;font-size:12px;display:grid;gap:3px">
+      ${results.map(r=>`<div style="display:flex;gap:8px;align-items:center">
+        <span style="color:${r.status==='sent'?'var(--success)':'var(--danger)'}">${r.status==='sent'?'&#10003;':'&#10007;'}</span>
+        <span><strong>${esc(r.name)}</strong> (${esc(r.phone||'no number')})</span>
+        ${r.error?`<span style="color:var(--danger);font-size:11px">${esc(r.error)}</span>`:''}
+      </div>`).join('')}
+    </div>
+  </div>`;
+  setHTML('sms-send-result',resultHtml);
+  await loadSMSLogs();
+}
+
+async function loadSMSLogs(){
+  const{data}=await api('/api/admin/sms/logs');
+  const logs=data.logs||[];
+  setHTML('sms-logs-table',logs.length===0
+    ?'<p class="empty-state">No SMS messages sent yet.</p>'
+    :`<table class="data-table"><thead><tr><th>To</th><th class="hide-sm">Phone</th><th>Message</th><th>Status</th><th class="hide-sm">Sent at</th></tr></thead><tbody>
+      ${logs.map(l=>`<tr>
+        <td><strong>${esc(l.recipient_name||'-')}</strong></td>
+        <td class="hide-sm" style="font-size:13px">${esc(l.recipient_phone||'-')}</td>
+        <td style="font-size:13px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.message)}</td>
+        <td><span class="${l.status==='sent'?'pill-active':'pill-terminated'}">${l.status}</span></td>
+        <td class="hide-sm" style="font-size:13px">${fmtDate(l.sent_at)}</td>
+      </tr>`).join('')}
+    </tbody></table>`);
 }
 
 // ═══════════════════════════════════════════════════════
