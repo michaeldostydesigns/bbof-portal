@@ -18,15 +18,22 @@ from fpdf.enums import XPos, YPos
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
-app.config["SECRET_KEY"]              = os.environ.get("SECRET_KEY", "bbof-change-me-in-production")
-app.config["JWT_SECRET_KEY"]         = os.environ.get("JWT_SECRET", "bbof-jwt-secret-change-in-production")
-app.config["JWT_TOKEN_LOCATION"]     = ["cookies"]
-app.config["JWT_COOKIE_CSRF_PROTECT"]= False
-app.config["JWT_ACCESS_TOKEN_EXPIRES"]= timedelta(days=7)
-app.config["SQLALCHEMY_DATABASE_URI"]= os.environ.get("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR,'bbof.db')}")
+app.config["SECRET_KEY"]               = os.environ.get("SECRET_KEY", "bbof-change-me-in-production")
+app.config["JWT_SECRET_KEY"]           = os.environ.get("JWT_SECRET", "bbof-jwt-secret-change-in-production")
+app.config["JWT_TOKEN_LOCATION"]       = ["cookies"]
+app.config["JWT_COOKIE_CSRF_PROTECT"]  = False
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
+
+# Fix Render's postgres:// prefix — SQLAlchemy requires postgresql://
+_raw_db_url = os.environ.get("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR,'bbof.db')}")
+if _raw_db_url.startswith("postgres://"):
+    _raw_db_url = _raw_db_url.replace("postgres://", "postgresql://", 1)
+app.config["SQLALCHEMY_DATABASE_URI"] = _raw_db_url
+
+# check_same_thread is SQLite-only — must be empty for PostgreSQL
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {} if os.environ.get("DATABASE_URL") else {"connect_args": {"check_same_thread": False}}
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"]= False
-app.config["MAX_CONTENT_LENGTH"]    = 10 * 1024 * 1024
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["MAX_CONTENT_LENGTH"]       = 10 * 1024 * 1024
 
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -1013,7 +1020,7 @@ def dm_conversations():
 
 def _send_via_arkesel(to, body):
     """Send SMS via Arkesel API v2."""
-    import urllib.request, json as _json
+    import urllib.request, json as _json, urllib.error
     api_key   = os.environ["ARKESEL_API_KEY"]
     sender_id = os.environ.get("ARKESEL_SENDER_ID", "BBOF")
 
@@ -1030,9 +1037,17 @@ def _send_via_arkesel(to, body):
     req.add_header("api-key",      api_key)
     req.add_header("Content-Type", "application/json")
 
-    with urllib.request.urlopen(req, timeout=15) as r:
-        resp = _json.loads(r.read())
-    # Arkesel returns {"status": "success"} on success
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            resp = _json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        body_err = e.read().decode()
+        raise Exception(f"Arkesel HTTP {e.code}: {body_err}")
+    except urllib.error.URLError as e:
+        raise Exception(f"Arkesel connection failed: {e.reason}")
+    except Exception as e:
+        raise Exception(f"Arkesel request failed: {str(e)}")
+
     if resp.get("status") != "success":
         raise Exception(resp.get("message", f"Arkesel error: {resp}"))
     return resp
@@ -1251,6 +1266,27 @@ def seed():
             print("✅  Admin created: admin@bbof.org / Admin@123")
 
 
+# ── Auto-startup: runs when gunicorn imports this module ────────────────────────
+# db.create_all() is safe to call repeatedly — it only creates missing tables.
+try:
+    with app.app_context():
+        db.create_all()
+        if not Settings.query.get(1):
+            db.session.add(Settings(id=1, lives_impacted=0))
+            db.session.commit()
+        if not User.query.filter_by(email="admin@bbof.org").first():
+            hashed = bcrypt.hashpw(b"Admin@123", bcrypt.gensalt()).decode()
+            db.session.add(User(
+                name="Foundation Admin", email="admin@bbof.org",
+                password_hash=hashed, role="admin"
+            ))
+            db.session.commit()
+            print("✅  Admin seeded: admin@bbof.org / Admin@123")
+except Exception as _e:
+    print(f"⚠️  Startup DB init warning: {_e}")
+
+
 if __name__ == "__main__":
     seed()
-    socketio.run(app, debug=False, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)
+    port = int(os.environ.get("PORT", 5000))
+    socketio.run(app, debug=False, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)

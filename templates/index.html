@@ -1431,36 +1431,64 @@ async function sendSMS(){
   const userId=el('sms-member-sel')?.value;
   setHTML('sms-send-result','');
 
-  if(!message){setHTML('sms-send-result','<div class="alert alert-error">Please write a message.</div>');return}
+  if(!message){setHTML('sms-send-result','<div class="alert alert-error">Please write a message before sending.</div>');return}
   if(type==='individual'&&!userId){setHTML('sms-send-result','<div class="alert alert-error">Please select a member.</div>');return}
 
-  const btn=el('sms-send-btn');if(btn){btn.disabled=true;btn.textContent='Sending...'}
-  const body={type,message};if(type==='individual')body.user_id=userId;
-  const{ok,data}=await api('/api/admin/sms/send',{method:'POST',body:JSON.stringify(body)});
-  if(btn){btn.disabled=false;btn.textContent='&#128241; Send SMS'}
+  const btn=el('sms-send-btn');
+  if(btn){btn.disabled=true;btn.textContent='Sending...'}
 
-  if(!ok){
-    const errMsg=data.error||'Could not send SMS.';
-    setHTML('sms-send-result',`<div class="alert alert-error">${esc(errMsg)}</div>`);
-    if(errMsg.includes('not configured')){
-      const warn=el('sms-provider-warn');if(warn)warn.style.display='block';
+  const body={type,message};
+  if(type==='individual')body.user_id=userId;
+
+  // 30-second timeout so button never hangs forever
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),30000);
+
+  try{
+    const res=await fetch('/api/admin/sms/send',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body),
+      signal:controller.signal
+    });
+    clearTimeout(timer);
+    const data=await res.json();
+
+    if(btn){btn.disabled=false;btn.innerHTML='&#128241; Send SMS'}
+
+    if(!res.ok){
+      const errMsg=data.error||'Could not send SMS.';
+      setHTML('sms-send-result',`<div class="alert alert-error">${esc(errMsg)}</div>`);
+      if(errMsg.includes('not configured')){
+        const warn=el('sms-provider-warn');if(warn)warn.style.display='block';
+      }
+      return;
     }
-    return;
-  }
 
-  const{sent,failed,results}=data;
-  const resultHtml=`<div class="alert alert-${failed===0?'success':'error'}" style="margin-bottom:0">
-    <strong>Done!</strong> ${sent} sent${failed>0?`, ${failed} failed`:'.'}<br/>
-    <div style="margin-top:8px;font-size:12px;display:grid;gap:3px">
-      ${results.map(r=>`<div style="display:flex;gap:8px;align-items:center">
-        <span style="color:${r.status==='sent'?'var(--success)':'var(--danger)'}">${r.status==='sent'?'&#10003;':'&#10007;'}</span>
-        <span><strong>${esc(r.name)}</strong> (${esc(r.phone||'no number')})</span>
-        ${r.error?`<span style="color:var(--danger);font-size:11px">${esc(r.error)}</span>`:''}
-      </div>`).join('')}
-    </div>
-  </div>`;
-  setHTML('sms-send-result',resultHtml);
-  await loadSMSLogs();
+    const{sent,failed,results}=data;
+    const resultHtml=`<div class="alert alert-${failed===0?'success':'error'}" style="margin-bottom:0">
+      <strong>${failed===0?'All sent!':'Partial send.'}</strong> ${sent} sent${failed>0?`, ${failed} failed`:'.'}<br/>
+      <div style="margin-top:8px;font-size:12px;display:grid;gap:4px">
+        ${results.map(r=>`<div style="display:flex;gap:8px;align-items:flex-start">
+          <span style="color:${r.status==='sent'?'var(--success)':'var(--danger)'};font-size:14px;flex-shrink:0">${r.status==='sent'?'&#10003;':'&#10007;'}</span>
+          <span><strong>${esc(r.name)}</strong> &middot; ${esc(r.phone||'no number')}
+            ${r.error?`<br/><span style="color:var(--danger);font-size:11px">${esc(r.error)}</span>`:''}
+          </span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+    setHTML('sms-send-result',resultHtml);
+    await loadSMSLogs();
+
+  }catch(e){
+    clearTimeout(timer);
+    if(btn){btn.disabled=false;btn.innerHTML='&#128241; Send SMS'}
+    if(e.name==='AbortError'){
+      setHTML('sms-send-result','<div class="alert alert-error">Request timed out after 30 seconds. Check your Arkesel API key and that phone numbers are in +233... format.</div>');
+    } else {
+      setHTML('sms-send-result',`<div class="alert alert-error">Error: ${esc(e.message||'Unknown error')}. Check your Render logs for details.</div>`);
+    }
+  }
 }
 
 async function loadSMSLogs(){
