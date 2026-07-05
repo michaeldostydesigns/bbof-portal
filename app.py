@@ -1018,38 +1018,73 @@ def dm_conversations():
 # SMS
 # ═══════════════════════════════════════════════════════════════
 
+def _normalise_phone(number):
+    """Ensure phone is in +233... international format."""
+    n = str(number or "").strip().replace(" ", "").replace("-", "")
+    if not n:
+        return n
+    # Already has + prefix
+    if n.startswith("+"):
+        return n
+    # Ghanaian local format 0244... → +233244...
+    if n.startswith("0") and len(n) == 10:
+        return "+233" + n[1:]
+    # Already has country code without + e.g. 233244...
+    if n.startswith("233") and len(n) == 12:
+        return "+" + n
+    # Fallback — just add +
+    return "+" + n
+
+
 def _send_via_arkesel(to, body):
-    """Send SMS via Arkesel API v2."""
-    import urllib.request, json as _json, urllib.error
+    """
+    Send SMS via Arkesel API v1 (GET-based).
+    v1 is used instead of v2 because Cloudflare blocks
+    JSON POST requests from data-centre IPs (Render etc).
+    """
+    import urllib.request, urllib.parse, json as _json, urllib.error
     api_key   = os.environ["ARKESEL_API_KEY"]
     sender_id = os.environ.get("ARKESEL_SENDER_ID", "BBOF")
 
-    payload = _json.dumps({
-        "sender":     sender_id,
-        "message":    body,
-        "recipients": [to]
-    }).encode()
+    # Normalise to international format
+    to = _normalise_phone(to)
 
-    req = urllib.request.Request(
-        "https://sms.arkesel.com/api/v2/sms/send",
-        data=payload, method="POST"
-    )
-    req.add_header("api-key",      api_key)
-    req.add_header("Content-Type", "application/json")
+    params = urllib.parse.urlencode({
+        "action":  "send-sms",
+        "api_key": api_key,
+        "to":      to,
+        "from":    sender_id,
+        "sms":     body,
+    })
+
+    url = f"https://sms.arkesel.com/sms/api?{params}"
+    req = urllib.request.Request(url, method="GET")
+    # Standard browser User-Agent to avoid bot-detection blocks
+    req.add_header("User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36")
+    req.add_header("Accept", "application/json")
 
     try:
         with urllib.request.urlopen(req, timeout=20) as r:
-            resp = _json.loads(r.read())
+            raw  = r.read().decode()
+            resp = _json.loads(raw)
     except urllib.error.HTTPError as e:
         body_err = e.read().decode()
         raise Exception(f"Arkesel HTTP {e.code}: {body_err}")
     except urllib.error.URLError as e:
         raise Exception(f"Arkesel connection failed: {e.reason}")
+    except _json.JSONDecodeError as e:
+        raise Exception(f"Arkesel returned invalid JSON: {raw[:200]}")
     except Exception as e:
         raise Exception(f"Arkesel request failed: {str(e)}")
 
-    if resp.get("status") != "success":
-        raise Exception(resp.get("message", f"Arkesel error: {resp}"))
+    # v1 returns {"status":"success"} or {"status":"failed","message":"..."}
+    if resp.get("status") not in ("success", "Success"):
+        raise Exception(
+            resp.get("message") or resp.get("code") or f"Arkesel error: {resp}"
+        )
     return resp
 
 
