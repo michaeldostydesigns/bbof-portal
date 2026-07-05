@@ -158,19 +158,45 @@ class Settings(db.Model):
 # ═══════════════════════════════════════════════════════════════
 
 def save_data_url(data_url, prefix="img"):
+    """
+    Save a base64 data URL image.
+    Uses Cloudinary when env vars are set (production).
+    Falls back to local disk (development).
+    """
+    # ── Cloudinary (production) ────────────────────────────
+    if os.environ.get("CLOUDINARY_CLOUD_NAME"):
+        import cloudinary
+        import cloudinary.uploader
+        cloudinary.config(
+            cloud_name = os.environ["CLOUDINARY_CLOUD_NAME"],
+            api_key    = os.environ["CLOUDINARY_API_KEY"],
+            api_secret = os.environ["CLOUDINARY_API_SECRET"],
+            secure     = True
+        )
+        result = cloudinary.uploader.upload(
+            data_url,
+            folder          = "bbof",
+            public_id       = f"{prefix}-{uuid.uuid4().hex[:10]}",
+            overwrite       = True,
+            resource_type   = "image",
+            transformation  = [{"width": 1400, "crop": "limit", "quality": "auto", "fetch_format": "auto"}]
+        )
+        return result["secure_url"]
+
+    # ── Local disk (development fallback) ─────────────────
     import re
     from PIL import Image as PILImage
     m = re.match(r"^data:(image/(png|jpeg|jpg|gif|webp));base64,(.+)$", data_url, re.DOTALL)
     if not m:
         raise ValueError("Invalid image data")
-    ext  = "jpg" if m.group(2) in ("jpeg","jpg") else m.group(2)
+    ext  = "jpg" if m.group(2) in ("jpeg", "jpg") else m.group(2)
     raw  = base64.b64decode(m.group(3))
-    if len(raw) > 5*1024*1024:
+    if len(raw) > 5 * 1024 * 1024:
         raise ValueError("Image too large (max 5MB)")
     img  = PILImage.open(io.BytesIO(raw))
-    img.thumbnail((1600,1600))
-    fname= f"{prefix}-{uuid.uuid4().hex[:10]}.{ext}"
-    path = os.path.join(UPLOAD_FOLDER, fname)
+    img.thumbnail((1400, 1400))
+    fname = f"{prefix}-{uuid.uuid4().hex[:10]}.{ext}"
+    path  = os.path.join(UPLOAD_FOLDER, fname)
     img.save(path, quality=85)
     return f"/static/uploads/{fname}"
 
