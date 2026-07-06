@@ -736,8 +736,12 @@ let currentUser=null,allMembers=[],galleryDataUrl=null,newsDataUrl=null,profileD
 let lightboxImages=[],lightboxIndex=0;
 let socket=null,chatHistoryLoaded=false,onlineUsers=[],unreadCommunity=0;
 let activeDashPage=null,activeChatTab='community';
-let currentDMPartner=null; // {id,name,image}
-let dmUnreadMap={};        // sender_id -> count
+let currentDMPartner=null;
+let dmUnreadMap={};
+
+// Gallery images stored globally to avoid JSON-in-onclick attribute issues
+// (Cloudinary URLs contain & which HTML parsers corrupt inside onclick='')
+let _galleryStore={};
 
 // ═══════════════════════════════════════════════════════
 // HELPERS
@@ -766,12 +770,17 @@ function updateNavAvatar(prefix,user){
   });
   setText(prefix+'-nav-name',user.name);
 }
-function galleryItemHtml(img,all,i){
-  return`<div class="gallery-item" onclick='openLightbox(${JSON.stringify(all)},${i})'>
+function galleryItemHtml(img, all, storeKey, i){
+  _galleryStore[storeKey]=all;  // store reference, never embed JSON in HTML
+  return`<div class="gallery-item" onclick="openLightboxFrom('${storeKey}',${i})">
     <img src="${esc(img.url)}" alt="${esc(img.caption||'')}" loading="lazy"/>
     <div class="gallery-item-overlay"><span>&#128269;</span></div>
     ${img.caption?`<div class="gallery-caption">${esc(img.caption)}</div>`:''}
   </div>`;
+}
+
+function openLightboxFrom(key, i){
+  openLightbox(_galleryStore[key]||[], i);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -863,7 +872,7 @@ async function loadLanding(){
       <div class="news-card-body"><h3 class="news-card-title serif">${esc(p.title)}</h3><p class="news-card-text">${esc(p.content)}</p><div class="news-card-date">${fmtDate(p.created_at)}</div></div></article>`).join(''));
   const images=gR.data.images||[];
   setHTML('landing-gallery',images.length===0?'<div class="card empty-state" style="grid-column:1/-1">No photos yet.</div>'
-    :images.map((img,i)=>galleryItemHtml(img,images,i)).join(''));
+    :images.map((img,i)=>galleryItemHtml(img,images,'landing',i)).join(''));
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1003,10 +1012,9 @@ function switchChatTab(tab){
   const pfx=isAdmin?'admin-':'';
 
   // Toggle tab button styles
-  const tabIds=['community','dm'];
-  tabIds.forEach(t=>{
+  ['community','dm'].forEach(t=>{
     const btn=el(`${isAdmin?'admin-':''}tab-${t}`);
-    if(btn){btn.className='chat-tab-btn'+(t===tab?' active-tab':'')}
+    if(btn)btn.className='chat-tab-btn'+(t===tab?' active-tab':'');
   });
 
   // Toggle panels
@@ -1018,9 +1026,11 @@ function switchChatTab(tab){
   if(tab==='community'){
     if(chatHistoryLoaded)scrollChat();
   } else {
+    // Render DM online list immediately using current onlineUsers state
+    // (don't wait for the next socket event to fire)
+    renderDMOnlineList();
     loadDMConversations();
   }
-  // Clear DM badge when opening DM tab
   if(tab==='dm'){
     if(currentDMPartner)socket?.emit('mark_dm_read',{from_id:currentDMPartner.id});
   }
@@ -1146,7 +1156,11 @@ async function loadDashPage(id){
   if(id==='member-overview')await loadMemberOverview();
   else if(id==='member-payments')await loadMemberPayments();
   else if(id==='member-gallery')await loadMemberGallery();
-  else if(id==='member-chat'){clearUnreadCommunity();if(chatHistoryLoaded)scrollChat();}
+  else if(id==='member-chat'){
+    clearUnreadCommunity();
+    if(chatHistoryLoaded)scrollChat();
+    renderDMOnlineList();  // show online members immediately on page load
+  }
   else if(id==='member-profile')renderProfileForm('member-profile-form-wrap','member');
   else if(id==='admin-overview')await loadAdminOverview();
   else if(id==='admin-members')await loadAdminMembers();
@@ -1158,7 +1172,11 @@ async function loadDashPage(id){
   else if(id==='admin-lives')await loadAdminLives();
   else if(id==='admin-reports')await loadAdminReports();
   else if(id==='admin-sms')await loadAdminSMS();
-  else if(id==='admin-chat'){clearUnreadCommunity();if(chatHistoryLoaded)scrollChat();}
+  else if(id==='admin-chat'){
+    clearUnreadCommunity();
+    if(chatHistoryLoaded)scrollChat();
+    renderDMOnlineList();  // show online members immediately on page load
+  }
   else if(id==='admin-profile')renderProfileForm('admin-profile-form-wrap','admin');
 }
 
@@ -1186,7 +1204,7 @@ async function loadMemberPayments(){
 async function loadMemberGallery(){
   const{data}=await api('/api/gallery');const images=data.images||[];
   setHTML('m-gallery-grid',images.length===0?'<div class="card empty-state" style="grid-column:1/-1">No photos yet.</div>'
-    :images.map((img,i)=>galleryItemHtml(img,images,i)).join(''));
+    :images.map((img,i)=>galleryItemHtml(img,images,'member',i)).join(''));
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1332,8 +1350,9 @@ async function deleteNews(id){if(!confirm('Delete this post?'))return;await api(
 async function loadAdminGallery(){
   const{data}=await api('/api/gallery');const images=data.images||[];
   if(images.length===0){setHTML('a-gallery-grid','<div class="card empty-state" style="grid-column:1/-1">No photos uploaded yet.</div>');return}
+  _galleryStore['admin']=images;  // store once, reference by index
   setHTML('a-gallery-grid',images.map((img,i)=>`
-    <div style="position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);cursor:pointer" onclick='openLightbox(${JSON.stringify(images)},${i})'>
+    <div style="position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);cursor:pointer" onclick="openLightboxFrom('admin',${i})">
       <img src="${esc(img.url)}" alt="${esc(img.caption||'')}" style="width:100%;height:155px;object-fit:cover;display:block" loading="lazy"/>
       <div style="position:absolute;inset:0;background:rgba(20,51,41,0);display:flex;align-items:center;justify-content:center;transition:.3s" onmouseenter="this.style.background='rgba(20,51,41,.35)';this.querySelector('span').style.opacity='1'" onmouseleave="this.style.background='rgba(20,51,41,0)';this.querySelector('span').style.opacity='0'"><span style="color:#fff;font-size:24px;opacity:0;transition:.3s">&#128269;</span></div>
       ${img.caption?`<div style="padding:7px 10px;font-size:12.5px;color:var(--ink-soft);background:#fff">${esc(img.caption)}</div>`:''}
