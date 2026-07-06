@@ -33,11 +33,25 @@ app.config["SQLALCHEMY_DATABASE_URI"] = _raw_db_url
 # check_same_thread is SQLite-only — must be empty for PostgreSQL
 if os.environ.get("DATABASE_URL"):
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_pre_ping": True,   # test connection before use — fixes SSL EOF drops
-        "pool_recycle":  280,    # recycle every ~4.5 min (Render drops at 5 min idle)
+        "pool_pre_ping":  True,   # test connection before use
+        "pool_recycle":   280,    # recycle before Render's 5-min idle timeout
+        "pool_size":      5,      # max persistent connections
+        "max_overflow":   2,      # extra connections allowed under load
+        "connect_args": {
+            "sslmode":             "require",
+            "connect_timeout":     10,
+            # TCP keepalives — ping idle connections every 30s so
+            # Render's network never silently drops them (fixes SSL EOF)
+            "keepalives":          1,
+            "keepalives_idle":     30,
+            "keepalives_interval": 10,
+            "keepalives_count":    5,
+        }
     }
 else:
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"connect_args": {"check_same_thread": False}}
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "connect_args": {"check_same_thread": False}
+    }
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_CONTENT_LENGTH"]       = 10 * 1024 * 1024
 
