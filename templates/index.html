@@ -1440,7 +1440,6 @@ async function sendSMS(){
   const body={type,message};
   if(type==='individual')body.user_id=userId;
 
-  // 30-second timeout so button never hangs forever
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),30000);
 
@@ -1452,7 +1451,21 @@ async function sendSMS(){
       signal:controller.signal
     });
     clearTimeout(timer);
-    const data=await res.json();
+
+    // Always read as text first — if server crashes it returns HTML not JSON
+    const raw=await res.text();
+    let data;
+    try{
+      data=JSON.parse(raw);
+    }catch(_){
+      // Server returned HTML error page
+      if(btn){btn.disabled=false;btn.innerHTML='&#128241; Send SMS'}
+      setHTML('sms-send-result',`<div class="alert alert-error">
+        Server error (HTTP ${res.status}). Please check your Render logs.<br/>
+        <small style="font-family:monospace;word-break:break-all">${esc(raw.replace(/<[^>]+>/g,'').trim().substring(0,300))}</small>
+      </div>`);
+      return;
+    }
 
     if(btn){btn.disabled=false;btn.innerHTML='&#128241; Send SMS'}
 
@@ -1467,10 +1480,10 @@ async function sendSMS(){
 
     const{sent,failed,results}=data;
     const resultHtml=`<div class="alert alert-${failed===0?'success':'error'}" style="margin-bottom:0">
-      <strong>${failed===0?'All sent!':'Partial send.'}</strong> ${sent} sent${failed>0?`, ${failed} failed`:'.'}<br/>
+      <strong>${failed===0?'&#10003; All sent!':'&#9888; Partial send.'}</strong> ${sent} sent${failed>0?`, ${failed} failed`:'.'}<br/>
       <div style="margin-top:8px;font-size:12px;display:grid;gap:4px">
         ${results.map(r=>`<div style="display:flex;gap:8px;align-items:flex-start">
-          <span style="color:${r.status==='sent'?'var(--success)':'var(--danger)'};font-size:14px;flex-shrink:0">${r.status==='sent'?'&#10003;':'&#10007;'}</span>
+          <span style="color:${r.status==='sent'?'var(--success)':'var(--danger)'};font-size:15px;flex-shrink:0">${r.status==='sent'?'&#10003;':'&#10007;'}</span>
           <span><strong>${esc(r.name)}</strong> &middot; ${esc(r.phone||'no number')}
             ${r.error?`<br/><span style="color:var(--danger);font-size:11px">${esc(r.error)}</span>`:''}
           </span>
@@ -1484,9 +1497,9 @@ async function sendSMS(){
     clearTimeout(timer);
     if(btn){btn.disabled=false;btn.innerHTML='&#128241; Send SMS'}
     if(e.name==='AbortError'){
-      setHTML('sms-send-result','<div class="alert alert-error">Request timed out after 30 seconds. Check your Arkesel API key and that phone numbers are in +233... format.</div>');
-    } else {
-      setHTML('sms-send-result',`<div class="alert alert-error">Error: ${esc(e.message||'Unknown error')}. Check your Render logs for details.</div>`);
+      setHTML('sms-send-result','<div class="alert alert-error">&#9203; Request timed out after 30 seconds. Check your Arkesel credentials and that phone numbers are in +233... format.</div>');
+    }else{
+      setHTML('sms-send-result',`<div class="alert alert-error">Error: ${esc(e.message||'Unknown error')}. Check your Render logs.</div>`);
     }
   }
 }

@@ -31,7 +31,13 @@ if _raw_db_url.startswith("postgres://"):
 app.config["SQLALCHEMY_DATABASE_URI"] = _raw_db_url
 
 # check_same_thread is SQLite-only — must be empty for PostgreSQL
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {} if os.environ.get("DATABASE_URL") else {"connect_args": {"check_same_thread": False}}
+if os.environ.get("DATABASE_URL"):
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_pre_ping": True,   # test connection before use — fixes SSL EOF drops
+        "pool_recycle":  280,    # recycle every ~4.5 min (Render drops at 5 min idle)
+    }
+else:
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"connect_args": {"check_same_thread": False}}
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_CONTENT_LENGTH"]       = 10 * 1024 * 1024
 
@@ -1080,11 +1086,18 @@ def _send_via_arkesel(to, body):
     except Exception as e:
         raise Exception(f"Arkesel request failed: {str(e)}")
 
-    # v1 returns {"status":"success"} or {"status":"failed","message":"..."}
-    if resp.get("status") not in ("success", "Success"):
-        raise Exception(
-            resp.get("message") or resp.get("code") or f"Arkesel error: {resp}"
-        )
+    # Arkesel v1 can return status as "success", "Success", "200" (string), or 200 (int).
+    # Check both status and message to determine success.
+    status_val  = str(resp.get("status",  "")).lower().strip()
+    message_val = str(resp.get("message", "")).lower().strip()
+
+    is_success = (
+        status_val  in ("success", "200", "ok", "true") or
+        "success"   in message_val or
+        "sent"      in message_val
+    )
+    if not is_success:
+        raise Exception(resp.get("message") or resp.get("code") or f"Arkesel error: {resp}")
     return resp
 
 
