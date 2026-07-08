@@ -322,6 +322,7 @@ a{color:inherit;text-decoration:none} button,input,select,textarea{font-family:i
         <a class="nav-link active" data-dp="member-overview" onclick="switchDash(this,'member')">&#128202; Overview</a>
         <a class="nav-link" data-dp="member-payments" onclick="switchDash(this,'member')">&#128179; My payments</a>
         <a class="nav-link" data-dp="member-gallery" onclick="switchDash(this,'member')">&#128444;&#65039; Gallery</a>
+        <a class="nav-link" data-dp="member-outreach" onclick="switchDash(this,'member')">&#129309; Outreach</a>
         <a class="nav-link" data-dp="member-chat" onclick="switchDash(this,'member')">&#128172; Community chat <span id="member-unread-badge" style="display:none;background:var(--gold);color:var(--forest-dark);font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;margin-left:4px">0</span></a>
         <a class="nav-link" data-dp="member-profile" onclick="switchDash(this,'member')">&#128100; Profile settings</a>
       </nav>
@@ -340,9 +341,10 @@ a{color:inherit;text-decoration:none} button,input,select,textarea{font-family:i
           <div class="card stat-card"><div class="stat-label">Net wealth</div><div class="stat-value" style="color:var(--gold)" id="m-net-wealth">-</div></div>
           <div class="card stat-card"><div class="stat-label">Lives impacted</div><div class="stat-value" id="m-lives">-</div></div>
         </div>
-        <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:22px">
+        <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:22px">
           <div class="card stat-card"><div class="stat-label">Total members</div><div class="stat-value" id="m-total-members">-</div></div>
           <div class="card stat-card"><div class="stat-label">Active members</div><div class="stat-value" id="m-active-members">-</div></div>
+          <div class="card stat-card"><div class="stat-label">Total expenses</div><div class="stat-value" style="color:var(--danger)" id="m-total-expenses">-</div></div>
           <div class="card stat-card"><div class="stat-label">Online now</div><div class="stat-value" style="color:var(--success)" id="m-online-count">-</div></div>
         </div>
         <div class="card" style="padding:18px 20px">
@@ -363,6 +365,12 @@ a{color:inherit;text-decoration:none} button,input,select,textarea{font-family:i
         <h1 class="serif" style="font-size:22px;color:var(--forest-dark);margin-bottom:5px">Foundation gallery</h1>
         <p style="color:var(--ink-soft);margin-bottom:20px;font-size:14px">Tap any photo to view full size.</p>
         <div id="m-gallery-grid" class="gallery-grid"></div>
+      </div>
+
+      <div id="member-outreach" class="dash-page">
+        <h1 class="serif" style="font-size:22px;color:var(--forest-dark);margin-bottom:5px">Outreach Programs</h1>
+        <p style="color:var(--ink-soft);margin-bottom:20px;font-size:14px">Community programs and activities run by the Foundation.</p>
+        <div id="m-outreach-list" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px"></div>
       </div>
       <!-- CHAT PAGE -->
       <div id="member-chat" class="dash-page">
@@ -442,6 +450,7 @@ a{color:inherit;text-decoration:none} button,input,select,textarea{font-family:i
         <a class="nav-link" data-dp="admin-lives" onclick="switchDash(this,'admin')">&#10084;&#65039; Lives impacted</a>
         <a class="nav-link" data-dp="admin-reports" onclick="switchDash(this,'admin')">&#128451; Reports</a>
         <a class="nav-link" data-dp="admin-sms" onclick="switchDash(this,'admin')">&#128241; SMS</a>
+        <a class="nav-link" data-dp="admin-outreach" onclick="switchDash(this,'admin')">&#129309; Outreach programs</a>
         <a class="nav-link" data-dp="admin-chat" onclick="switchDash(this,'admin')">&#128172; Community chat</a>
         <a class="nav-link" data-dp="admin-profile" onclick="switchDash(this,'admin')">&#128100; Profile settings</a>
       </nav>
@@ -654,6 +663,22 @@ a{color:inherit;text-decoration:none} button,input,select,textarea{font-family:i
         <div class="card" style="padding:4px 0"><div class="table-scroll" id="sms-logs-table"></div></div>
       </div>
 
+      <!-- OUTREACH PROGRAMS -->
+      <div id="admin-outreach" class="dash-page">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+          <div>
+            <h1 class="serif" style="font-size:20px;color:var(--forest-dark)">Outreach Programs</h1>
+            <p style="color:var(--ink-soft);font-size:13px;margin-top:3px">Total beneficiaries: <strong id="a-outreach-total">-</strong></p>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="openAddOutreach()">+ Record program</button>
+        </div>
+        <div id="storage-warning" style="display:none;margin-bottom:16px;padding:12px 16px;background:rgba(201,162,75,.15);border:1px solid var(--gold);border-radius:12px;font-size:13px;color:var(--forest-dark)">
+          &#9888;&#65039; <strong>Cloudinary not configured</strong> — uploaded photos are stored locally and will disappear when Render restarts.
+          Add <code>CLOUDINARY_CLOUD_NAME</code>, <code>CLOUDINARY_API_KEY</code>, <code>CLOUDINARY_API_SECRET</code> to your Render environment variables to make images permanent.
+        </div>
+        <div id="a-outreach-list" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px"></div>
+      </div>
+
       <div id="admin-profile" class="dash-page">
         <h1 class="serif" style="font-size:20px;color:var(--forest-dark);margin-bottom:4px">Profile settings</h1>
         <p style="color:var(--ink-soft);margin-bottom:20px;font-size:13.5px">Update your admin profile photo, name, phone, or password.</p>
@@ -728,20 +753,60 @@ a{color:inherit;text-decoration:none} button,input,select,textarea{font-family:i
   </div>
 </div>
 
+<div id="modal-add-outreach" class="modal-bg" style="display:none" onclick="if(event.target===this)closeModal('modal-add-outreach')">
+  <div class="modal" style="max-width:520px">
+    <h2 id="modal-outreach-title">Record outreach program</h2>
+    <input type="hidden" id="outreach-edit-id"/>
+    <div class="form-grid">
+      <div><label class="field-label">Program title</label><input class="input" id="outreach-title" placeholder="e.g. Food distribution at Nungua"/></div>
+      <div><label class="field-label">Description</label><textarea class="input" id="outreach-desc" rows="3" placeholder="What was done, who was helped..."></textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div><label class="field-label">Date</label><input class="input" type="date" id="outreach-date"/></div>
+        <div><label class="field-label">Beneficiaries</label><input class="input" type="number" min="0" id="outreach-bene" placeholder="0"/></div>
+      </div>
+      <div><label class="field-label">Location</label><input class="input" id="outreach-location" placeholder="e.g. Nungua, Accra"/></div>
+      <div>
+        <label class="field-label">Category</label>
+        <select class="input" id="outreach-category">
+          <option value="">Select category...</option>
+          <option>Food &amp; shelter</option>
+          <option>Healthcare</option>
+          <option>Education</option>
+          <option>Economic empowerment</option>
+          <option>Community development</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">Photo (optional)</label>
+        <label class="btn btn-outline btn-sm" style="cursor:pointer;display:inline-flex">
+          Choose photo
+          <input type="file" accept="image/*" id="outreach-file" onchange="previewOutreachImg(event)" style="display:none"/>
+        </label>
+        <img id="outreach-img-preview" src="" alt="" style="display:none;margin-top:10px;max-height:140px;border-radius:8px;object-fit:cover;width:100%"/>
+      </div>
+      <div id="modal-outreach-error" class="alert alert-error" style="display:none"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="saveOutreach()">Save program</button>
+        <button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-outreach')">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════
-let currentUser=null,allMembers=[],galleryDataUrl=null,newsDataUrl=null,profileDataUrl=null;
+let currentUser=null,allMembers=[],galleryDataUrl=null,newsDataUrl=null,profileDataUrl=null,outreachDataUrl=null;
 let lightboxImages=[],lightboxIndex=0;
 let socket=null,chatHistoryLoaded=false,onlineUsers=[],unreadCommunity=0;
 let activeDashPage=null,activeChatTab='community';
 let currentDMPartner=null;
 let dmUnreadMap={};
-
-// Gallery images stored globally to avoid JSON-in-onclick attribute issues
-// (Cloudinary URLs contain & which HTML parsers corrupt inside onclick='')
+// Global stores — avoid JSON.stringify in onclick HTML attributes
 let _galleryStore={};
+let _outreachStore={};
 
 // ═══════════════════════════════════════════════════════
 // HELPERS
@@ -1156,6 +1221,7 @@ async function loadDashPage(id){
   if(id==='member-overview')await loadMemberOverview();
   else if(id==='member-payments')await loadMemberPayments();
   else if(id==='member-gallery')await loadMemberGallery();
+  else if(id==='member-outreach')await loadMemberOutreach();
   else if(id==='member-chat'){
     clearUnreadCommunity();
     if(chatHistoryLoaded)scrollChat();
@@ -1172,6 +1238,7 @@ async function loadDashPage(id){
   else if(id==='admin-lives')await loadAdminLives();
   else if(id==='admin-reports')await loadAdminReports();
   else if(id==='admin-sms')await loadAdminSMS();
+  else if(id==='admin-outreach')await loadAdminOutreach();
   else if(id==='admin-chat'){
     clearUnreadCommunity();
     if(chatHistoryLoaded)scrollChat();
@@ -1185,6 +1252,7 @@ async function loadMemberOverview(){
   const payments=pR.data.payments||[],summary=fR.data.summary||{};
   setText('m-my-total',fmt(payments.reduce((s,p)=>s+p.amount,0)));
   setText('m-all-dues',fmt(summary.total_dues));setText('m-net-wealth',fmt(summary.net_wealth));
+  setText('m-total-expenses',fmt(summary.total_expenses));
   setText('m-lives',(sR.data.settings?.lives_impacted||0).toLocaleString());
   setText('m-total-members',cR.data.total||0);setText('m-active-members',cR.data.active||0);
   setText('m-online-count',onlineUsers.length);
@@ -1537,6 +1605,132 @@ async function loadSMSLogs(){
         <td class="hide-sm" style="font-size:13px">${fmtDate(l.sent_at)}</td>
       </tr>`).join('')}
     </tbody></table>`);
+}
+
+// ═══════════════════════════════════════════════════════
+// OUTREACH PROGRAMS
+// ═══════════════════════════════════════════════════════
+const CATEGORY_COLORS={
+  'Food & shelter':       'rgba(31,77,61,.12)',
+  'Healthcare':           'rgba(59,130,246,.12)',
+  'Education':            'rgba(245,158,11,.15)',
+  'Economic empowerment': 'rgba(139,92,246,.12)',
+  'Community development':'rgba(20,184,166,.12)',
+  'Other':                'rgba(100,100,100,.1)',
+};
+
+function renderOutreachGrid(containerId,programs,isAdmin){
+  programs.forEach(p=>{ _outreachStore[p.id]=p; });
+  if(programs.length===0){
+    setHTML(containerId,'<div class="card empty-state" style="grid-column:1/-1">No outreach programs recorded yet.</div>');
+    return;
+  }
+  setHTML(containerId,programs.map(p=>`
+    <div class="card" style="overflow:hidden;display:flex;flex-direction:column">
+      ${p.image
+        ?`<img src="${esc(p.image)}" alt="" style="width:100%;height:160px;object-fit:cover;display:block"/>`
+        :`<div style="height:70px;background:linear-gradient(135deg,var(--forest),var(--forest-dark));display:flex;align-items:center;justify-content:center;font-size:28px">&#129309;</div>`}
+      <div style="padding:16px 18px;flex:1;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <h3 class="serif" style="font-size:16px;color:var(--forest-dark);line-height:1.25">${esc(p.title)}</h3>
+          ${p.category?`<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;flex-shrink:0;background:${CATEGORY_COLORS[p.category]||'rgba(100,100,100,.1)'};color:var(--ink)">${esc(p.category)}</span>`:''}
+        </div>
+        ${p.description?`<p style="font-size:13px;color:var(--ink-soft);line-height:1.55;margin:0">${esc(p.description)}</p>`:''}
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:auto;padding-top:8px;border-top:1px solid var(--line)">
+          ${p.date?`<span style="font-size:12px;color:var(--ink-soft)">&#128197; ${fmtDate(p.date+'T00:00:00')}</span>`:''}
+          ${p.location?`<span style="font-size:12px;color:var(--ink-soft)">&#128205; ${esc(p.location)}</span>`:''}
+          ${p.beneficiaries?`<span style="font-size:12px;font-weight:700;color:var(--forest)">&#10084;&#65039; ${p.beneficiaries.toLocaleString()} ${p.beneficiaries===1?'person':'people'} helped</span>`:''}
+        </div>
+        ${isAdmin?`<div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-outline btn-sm" onclick="openEditOutreach('${p.id}')">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteOutreach('${p.id}')">Delete</button>
+        </div>`:''}
+      </div>
+    </div>`).join(''));
+}
+
+async function loadAdminOutreach(){
+  // Check if Cloudinary is configured — warn if not
+  try{
+    const sr=await api('/api/admin/storage/status');
+    const warn=el('storage-warning');
+    if(warn)warn.style.display=sr.data.cloudinary?'none':'block';
+  }catch(_){}
+
+  const{data}=await api('/api/admin/outreach');
+  const programs=data.programs||[];
+  const totalBene=programs.reduce((s,p)=>s+(p.beneficiaries||0),0);
+  setText('a-outreach-total',totalBene.toLocaleString()+' people');
+  renderOutreachGrid('a-outreach-list',programs,true);
+}
+
+async function loadMemberOutreach(){
+  const{data}=await api('/api/outreach');
+  renderOutreachGrid('m-outreach-list',data.programs||[],false);
+}
+
+function openAddOutreach(){
+  el('modal-outreach-title').textContent='Record outreach program';
+  el('outreach-edit-id').value='';
+  el('outreach-title').value=''; el('outreach-desc').value='';
+  el('outreach-date').value=''; el('outreach-bene').value='';
+  el('outreach-location').value=''; el('outreach-category').value='';
+  el('outreach-img-preview').style.display='none';
+  outreachDataUrl=null;
+  hideAlert('modal-outreach-error');
+  openModal('modal-add-outreach');
+}
+
+function openEditOutreach(id){
+  const p=_outreachStore[id]; if(!p)return;
+  el('modal-outreach-title').textContent='Edit outreach program';
+  el('outreach-edit-id').value=p.id;
+  el('outreach-title').value=p.title||'';
+  el('outreach-desc').value=p.description||'';
+  el('outreach-date').value=p.date||'';
+  el('outreach-bene').value=p.beneficiaries||'';
+  el('outreach-location').value=p.location||'';
+  el('outreach-category').value=p.category||'';
+  if(p.image){el('outreach-img-preview').src=p.image;el('outreach-img-preview').style.display='block';}
+  else el('outreach-img-preview').style.display='none';
+  outreachDataUrl=null;
+  hideAlert('modal-outreach-error');
+  openModal('modal-add-outreach');
+}
+
+function previewOutreachImg(e){
+  const file=e.target.files[0];if(!file)return;
+  if(file.size>5*1024*1024){showAlert('modal-outreach-error','Image must be under 5MB.');return}
+  const r=new FileReader();
+  r.onload=ev=>{outreachDataUrl=ev.target.result;el('outreach-img-preview').src=ev.target.result;el('outreach-img-preview').style.display='block'};
+  r.readAsDataURL(file);
+}
+
+async function saveOutreach(){
+  hideAlert('modal-outreach-error');
+  const id=el('outreach-edit-id').value;
+  const title=el('outreach-title').value.trim();
+  if(!title){showAlert('modal-outreach-error','Title is required.');return}
+  const body={
+    title, description:el('outreach-desc').value,
+    date:el('outreach-date').value, beneficiaries:el('outreach-bene').value||0,
+    location:el('outreach-location').value, category:el('outreach-category').value,
+  };
+  if(outreachDataUrl)body.image_data_url=outreachDataUrl;
+  const{ok,data}=await api(
+    id?`/api/admin/outreach/${id}`:'/api/admin/outreach',
+    {method:id?'PUT':'POST',body:JSON.stringify(body)}
+  );
+  if(!ok){showAlert('modal-outreach-error',data.error||'Could not save.');return}
+  closeModal('modal-add-outreach');
+  outreachDataUrl=null; el('outreach-file').value='';
+  await loadAdminOutreach();
+}
+
+async function deleteOutreach(id){
+  if(!confirm('Delete this outreach program record?'))return;
+  await api(`/api/admin/outreach/${id}`,{method:'DELETE'});
+  await loadAdminOutreach();
 }
 
 // ═══════════════════════════════════════════════════════

@@ -230,6 +230,27 @@ class Settings(db.Model):
     lives_impacted= db.Column(db.Integer, default=0)
 
 
+class OutreachProgram(db.Model):
+    id            = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    title         = db.Column(db.String(300), nullable=False)
+    description   = db.Column(db.Text)
+    date          = db.Column(db.String(20))
+    location      = db.Column(db.String(200))
+    category      = db.Column(db.String(100))
+    beneficiaries = db.Column(db.Integer, default=0)
+    image         = db.Column(db.String(300))
+    created_at    = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            "id": self.id, "title": self.title,
+            "description": self.description, "date": self.date,
+            "location": self.location, "category": self.category,
+            "beneficiaries": self.beneficiaries or 0,
+            "image": self.image, "created_at": self.created_at.isoformat()
+        }
+
+
 # ═══════════════════════════════════════════════════════════════
 # HELPERS
 # ═══════════════════════════════════════════════════════════════
@@ -673,19 +694,20 @@ def update_profile():
     if not user:
         return jsonify(error="User not found."), 404
     data = request.get_json()
-    if data.get("name"):           user.name  = data["name"]
-    if data.get("phone") is not None: user.phone = data["phone"]
-    if data.get("password"):
-        if len(data["password"]) < 6:
-            return jsonify(error="Password must be at least 6 characters."), 400
-        user.password_hash = bcrypt.hashpw(data["password"].encode(), bcrypt.gensalt()).decode()
-    if data.get("profile_image_data_url"):
-        try:
+    try:
+        if data.get("name"):           user.name  = data["name"]
+        if data.get("phone") is not None: user.phone = data["phone"]
+        if data.get("password"):
+            if len(data["password"]) < 6:
+                return jsonify(error="Password must be at least 6 characters."), 400
+            user.password_hash = bcrypt.hashpw(data["password"].encode(), bcrypt.gensalt()).decode()
+        if data.get("profile_image_data_url"):
             user.profile_image = save_data_url(data["profile_image_data_url"], "profile")
-        except Exception as e:
-            return jsonify(error=str(e)), 400
-    db.session.commit()
-    return jsonify(user=user.to_dict())
+        db.session.commit()
+        return jsonify(user=user.to_dict())
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(error=f"Could not save profile: {str(e)}"), 500
 
 
 @app.route("/api/chat/history")
@@ -872,13 +894,17 @@ def admin_create_news():
     data  = request.get_json()
     if not data.get("title") or not data.get("content"):
         return jsonify(error="Title and content are required."), 400
-    image = None
-    if data.get("image_data_url"):
-        try:    image = save_data_url(data["image_data_url"], "news")
-        except Exception as ex: return jsonify(error=str(ex)), 400
-    p = NewsPost(title=data["title"], content=data["content"], image=image)
-    db.session.add(p); db.session.commit()
-    return jsonify(post=p.to_dict()), 201
+    try:
+        image = None
+        if data.get("image_data_url"):
+            image = save_data_url(data["image_data_url"], "news")
+        p = NewsPost(title=data["title"], content=data["content"], image=image)
+        db.session.add(p)
+        db.session.commit()
+        return jsonify(post=p.to_dict()), 201
+    except Exception as ex:
+        db.session.rollback()
+        return jsonify(error=str(ex)), 500
 
 
 @app.route("/api/admin/news/<nid>", methods=["DELETE"])
@@ -903,11 +929,15 @@ def admin_upload_gallery():
     data = request.get_json()
     if not data.get("image_data_url"):
         return jsonify(error="An image is required."), 400
-    try:    url = save_data_url(data["image_data_url"], "gallery")
-    except Exception as ex: return jsonify(error=str(ex)), 400
-    img = GalleryImage(url=url, caption=data.get("caption"))
-    db.session.add(img); db.session.commit()
-    return jsonify(image=img.to_dict()), 201
+    try:
+        url = save_data_url(data["image_data_url"], "gallery")
+        img = GalleryImage(url=url, caption=data.get("caption"))
+        db.session.add(img)
+        db.session.commit()
+        return jsonify(image=img.to_dict()), 201
+    except Exception as ex:
+        db.session.rollback()
+        return jsonify(error=str(ex)), 400
 
 
 @app.route("/api/admin/gallery/<gid>", methods=["DELETE"])
@@ -1181,6 +1211,110 @@ def admin_sms_logs():
     if err: return err
     logs = SMSLog.query.order_by(SMSLog.sent_at.desc()).limit(200).all()
     return jsonify(logs=[l.to_dict() for l in logs])
+
+
+# ═══════════════════════════════════════════════════════════════
+# STORAGE STATUS
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/api/admin/storage/status")
+@jwt_required()
+def storage_status():
+    err = require_admin()
+    if err: return err
+    cloud = bool(os.environ.get("CLOUDINARY_CLOUD_NAME"))
+    return jsonify(cloudinary=cloud, storage="cloudinary" if cloud else "local")
+
+
+# ═══════════════════════════════════════════════════════════════
+# OUTREACH PROGRAMS
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/api/outreach")
+@jwt_required()
+def get_outreach():
+    programs = OutreachProgram.query.order_by(
+        OutreachProgram.date.desc(), OutreachProgram.created_at.desc()
+    ).all()
+    return jsonify(programs=[p.to_dict() for p in programs])
+
+
+@app.route("/api/admin/outreach", methods=["GET"])
+@jwt_required()
+def admin_list_outreach():
+    err = require_admin()
+    if err: return err
+    programs = OutreachProgram.query.order_by(
+        OutreachProgram.date.desc(), OutreachProgram.created_at.desc()
+    ).all()
+    return jsonify(programs=[p.to_dict() for p in programs])
+
+
+@app.route("/api/admin/outreach", methods=["POST"])
+@jwt_required()
+def admin_create_outreach():
+    err = require_admin()
+    if err: return err
+    data = request.get_json()
+    if not data.get("title"):
+        return jsonify(error="Title is required."), 400
+    try:
+        image = None
+        if data.get("image_data_url"):
+            image = save_data_url(data["image_data_url"], "outreach")
+        p = OutreachProgram(
+            title=data["title"],
+            description=data.get("description"),
+            date=data.get("date") or None,
+            location=data.get("location"),
+            category=data.get("category"),
+            beneficiaries=int(data.get("beneficiaries") or 0),
+            image=image
+        )
+        db.session.add(p)
+        db.session.commit()
+        return jsonify(program=p.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(error=f"Could not save program: {str(e)}"), 500
+
+
+@app.route("/api/admin/outreach/<oid>", methods=["PUT"])
+@jwt_required()
+def admin_update_outreach(oid):
+    err = require_admin()
+    if err: return err
+    p = OutreachProgram.query.get_or_404(oid)
+    data = request.get_json()
+    try:
+        if data.get("title"):                       p.title         = data["title"]
+        if data.get("description") is not None:     p.description   = data["description"]
+        if data.get("date") is not None:            p.date          = data["date"] or None
+        if data.get("location") is not None:        p.location      = data["location"]
+        if data.get("category") is not None:        p.category      = data["category"]
+        if data.get("beneficiaries") is not None:   p.beneficiaries = int(data["beneficiaries"] or 0)
+        if data.get("image_data_url"):
+            p.image = save_data_url(data["image_data_url"], "outreach")
+        db.session.commit()
+        return jsonify(program=p.to_dict())
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(error=f"Could not update program: {str(e)}"), 500
+
+
+@app.route("/api/admin/outreach/<oid>", methods=["DELETE"])
+@jwt_required()
+def admin_delete_outreach(oid):
+    err = require_admin()
+    if err: return err
+    p = OutreachProgram.query.get_or_404(oid)
+    try:
+        db.session.delete(p)
+        db.session.commit()
+        return jsonify(ok=True)
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(error=str(e)), 500
 
 
 # ═══════════════════════════════════════════════════════════════
