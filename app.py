@@ -256,19 +256,70 @@ class OutreachProgram(db.Model):
 # ═══════════════════════════════════════════════════════════════
 
 def save_data_url(data_url, prefix="img"):
+    """
+    Save a base64 image.
+    • Production (DATABASE_URL set): requires Cloudinary env vars.
+    • Local dev: saves to static/uploads/ as fallback.
+    Raises ValueError with a clear message if not configured.
+    """
     import re
     from PIL import Image as PILImage
+
     m = re.match(r"^data:(image/(png|jpeg|jpg|gif|webp));base64,(.+)$", data_url, re.DOTALL)
     if not m:
-        raise ValueError("Invalid image data")
-    ext  = "jpg" if m.group(2) in ("jpeg","jpg") else m.group(2)
-    raw  = base64.b64decode(m.group(3))
-    if len(raw) > 5*1024*1024:
-        raise ValueError("Image too large (max 5MB)")
-    img  = PILImage.open(io.BytesIO(raw))
-    img.thumbnail((1600,1600))
-    fname= f"{prefix}-{uuid.uuid4().hex[:10]}.{ext}"
-    path = os.path.join(UPLOAD_FOLDER, fname)
+        raise ValueError("Invalid image data — expected a base64 PNG/JPEG/WebP.")
+    ext = "jpg" if m.group(2) in ("jpeg", "jpg") else m.group(2)
+    raw = base64.b64decode(m.group(3))
+    if len(raw) > 5 * 1024 * 1024:
+        raise ValueError("Image too large (max 5 MB).")
+
+    cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME")
+    is_prod    = bool(os.environ.get("DATABASE_URL"))
+
+    # ── Cloudinary (production + dev if configured) ─────────────
+    if cloud_name:
+        try:
+            import cloudinary
+            import cloudinary.uploader
+        except ImportError:
+            raise ValueError(
+                "Cloudinary package not installed. "
+                "Add 'cloudinary>=1.36.0' to requirements.txt and redeploy."
+            )
+        cloudinary.config(
+            cloud_name = cloud_name,
+            api_key    = os.environ["CLOUDINARY_API_KEY"],
+            api_secret = os.environ["CLOUDINARY_API_SECRET"],
+            secure     = True,
+        )
+        # Resize with Pillow before upload to save Cloudinary bandwidth
+        img = PILImage.open(io.BytesIO(raw))
+        img.thumbnail((1400, 1400))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG" if ext == "jpg" else ext.upper(), quality=85)
+        buf.seek(0)
+        result = cloudinary.uploader.upload(
+            buf,
+            folder         = "bbof",
+            public_id      = f"{prefix}-{uuid.uuid4().hex[:10]}",
+            overwrite      = True,
+            resource_type  = "image",
+        )
+        return result["secure_url"]
+
+    # ── Production without Cloudinary → hard error ──────────────
+    if is_prod:
+        raise ValueError(
+            "Cloud storage not configured. "
+            "Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET "
+            "to your Render environment variables, then redeploy."
+        )
+
+    # ── Local dev fallback ───────────────────────────────────────
+    img   = PILImage.open(io.BytesIO(raw))
+    img.thumbnail((1400, 1400))
+    fname = f"{prefix}-{uuid.uuid4().hex[:10]}.{ext}"
+    path  = os.path.join(UPLOAD_FOLDER, fname)
     img.save(path, quality=85)
     return f"/static/uploads/{fname}"
 
@@ -657,7 +708,24 @@ def public_settings():
     s = Settings.query.get(1)
     if not s:
         s = Settings(id=1, lives_impacted=0); db.session.add(s); db.session.commit()
-    return jsonify(settings={"lives_impacted": s.lives_impacted})
+
+    # Auto-sum beneficiaries from all outreach programs
+    outreach_total = db.session.query(
+        db.func.sum(OutreachProgram.beneficiaries)
+    ).scalar() or 0
+
+    base           = s.lives_impacted or 0
+    total          = base + outreach_total
+
+    # Also check if Cloudinary is configured (for frontend warning)
+    cloud_ok       = bool(os.environ.get("CLOUDINARY_CLOUD_NAME"))
+
+    return jsonify(settings={
+        "lives_impacted":  total,           # combined total shown everywhere
+        "lives_base":      base,            # manual baseline (admin can edit)
+        "lives_outreach":  outreach_total,  # auto-calculated from programs
+        "cloudinary_ok":   cloud_ok,        # for upload warnings
+    })
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -969,7 +1037,14 @@ def admin_update_settings():
     if not s: s = Settings(id=1); db.session.add(s)
     s.lives_impacted = val
     db.session.commit()
-    return jsonify(settings={"lives_impacted": s.lives_impacted})
+    outreach_total = db.session.query(
+        db.func.sum(OutreachProgram.beneficiaries)
+    ).scalar() or 0
+    return jsonify(settings={
+        "lives_impacted": val + outreach_total,
+        "lives_base":     val,
+        "lives_outreach": outreach_total,
+    })
 
 
 # ═══════════════════════════════════════════════════════════════
